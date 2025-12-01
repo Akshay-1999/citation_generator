@@ -30,3 +30,6 @@ pip-delete-this-directory.txt
 
 # Database
 *.sqlite3
+
+#files
+test
