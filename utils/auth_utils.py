@@ -1,29 +1,39 @@
 from db.endpoints.auth import authenticate_user
-from fastapi import HTTPException, Depends , APIRouter 
-from pydantic import BaseModel
+from fastapi import HTTPException, Depends , APIRouter , status
+from pydantic import BaseModel , EmailStr
 from typing import Optional
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from db.endpoints.user import get_user
+from utils.logging_utils import set_system_logger
+
+logger = set_system_logger("system_logger")
+
+oauth2scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+
+class UserIn(BaseModel):
+    email: EmailStr
+    password: str
+
+# class Authresponse (BaseModel):
+#     user_id: str
+#     role: str
+#     hashed_password: str
+#     # is_active: bool
+
 
 authrouter = APIRouter()
 
-class AuthRequest(BaseModel):
-    email: str
-    password: str
-class AuthResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
+@authrouter.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    logger.info(f"Received authentication request for user: {form_data.username}")
+    user_data = await authenticate_user(email=form_data.username, password=form_data.password)
+    if isinstance(user_data, str):
+        logger.error(f"Authentication failed for user: {form_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    logger.info(f"Authentication successful for user: {form_data.username}")
+    return {"access_token_username": user_data['user_id'] , "access_token_role": user_data['role'], "token_type": "bearer"}
 
-def create_access_token(data: dict, expires_delta: Optional[int] = None):
-    # Placeholder function for creating JWT tokens
-    return
-
-@authrouter.post("/authenticate")
-async def authenticate_endpoint(auth_request: AuthRequest):
-    try:
-        auth_result = await authenticate_user(auth_request.email, auth_request.password)
-        if auth_result == "Authentication failed.":
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
-        user_id, password, user_role = auth_result
-        return {"message": "Authentication successful.", "user_id": user_id, "password": password, "role": user_role}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
