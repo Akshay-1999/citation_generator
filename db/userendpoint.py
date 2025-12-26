@@ -1,27 +1,27 @@
 from fastapi import APIRouter, HTTPException , Depends
 from pydantic import BaseModel , EmailStr , Field
-from typing import Optional
+from typing import Optional , Literal
 from utils.logging_utils import set_system_logger
-from utils.auth_utils import oauth2scheme 
-# from utils.auth_utils import get_user_details
+from utils.auth_utils import oauth2scheme,  get_user_details
+from db.endpoints.user import create_user
 
 logger = set_system_logger("system_logger")
 
-userrouter = APIRouter(dependencies=[Depends(oauth2scheme)])  
+userrouter = APIRouter()  
 
 class User(BaseModel):
     user_name: str = Field(..., example="john_doe")
     email: EmailStr = Field(..., example="john@example.com")
-    user_role: str = Field(..., example="admin")
-    password: str = Field(..., example="strongpassword123")
-    
+    user_role: str = Literal ["admin", "user", "guest"]
+    password: str = Field(..., example="strongpassword123") 
+
 @userrouter.post("/create_user")
-async def create_user_endpoint(user: User ):
+async def create_user_endpoint(user: User, user_details = Depends(get_user_details)):
     from db.endpoints.user import create_user
-    # if not login:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
-    # if token['access_token_role'] != 'admin':
-    #     raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
+    user_details_role = user_details.get("role")
+    if user_details_role != "admin":
+        logger.error(f"Unauthorized user creation attempt by user_id: {user_details.get('user_id')}")
+        raise HTTPException(status_code=403, detail="Operation not permitted. Admin role required.")
     try:
         logger.info(f"Attempting to create user with email: {user.email}")
         result = await create_user(user.user_name, user.email, user.user_role, user.password)

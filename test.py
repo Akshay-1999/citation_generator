@@ -1,20 +1,21 @@
-import asyncio
+from fastapi import APIRouter, Depends, HTTPException 
+from pydantic import BaseModel , EmailStr , Field
+from typing import Optional
 from utils.logging_utils import set_system_logger
-# from utils.auth_utils import get_user_details 
-from db.endpoints.auth import authenticate_user
-from pydantic import BaseModel
-import json
+from utils.auth_utils import ALGORITHM, SECRET_KEY, oauth2scheme,  get_user_details
+logger = set_system_logger("system_logger")
+import uuid
+from jose import jwt
 
+# Secret key
+# SECRET_KEY = uuid.uuid4().hex
+# ALGORITHM = "HS256"
+# ACCESS_TOKEN_EXPIRE_MINUTES = 30 
 
-class user_out(BaseModel):
-    user_id: str
-    role: str
-    email: str
+test_router = APIRouter(dependencies=[Depends(oauth2scheme)]) 
 
-def return_res():
-    val = dict(user_id='abc', role='dfr', email='test@example.com')
-    return user_out(**val)
+@test_router.get("/test")
+async def test_endpoint(user_details = Depends(get_user_details)):  
+    user_details_role = user_details.get("role")
 
-if __name__ == "__main__":
-    val = return_res()
-    print(val)
+    return {"message": "Test endpoint is working!", "user_details_user_name": user_details.get("user_id"), "role": user_details_role}
