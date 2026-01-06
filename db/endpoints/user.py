@@ -83,7 +83,7 @@ async def delete_user(email: str):
         result = await connection.execute(
             """
             UPDATE core.users 
-            SET is_active = false
+            SET is_active = false            
             WHERE email = $1
             """,
             email

@@ -17,7 +17,7 @@ authrouter = APIRouter()
 # Secret key
 SECRET_KEY = uuid.uuid4().hex
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1
 
 
 class Token(BaseModel):
@@ -50,7 +50,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"user_id": user_data['user_id'],
+        data={"user_id": (user_data['user_id']),
               "role": user_data['role'],
               "email": form_data.username
               }, expires_delta=access_token_expires

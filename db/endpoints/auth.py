@@ -31,7 +31,7 @@ async def authenticate_user(email: EmailStr, password: str) -> str:
                 return user_data
             else:
                 logger.error(f"Authentication failed for email: {email}")
-                return "Authentication failed."
-    except Exception as e:
+                return None
+    except Exception as e:  
         print(f"Error during authentication: {e}")
 

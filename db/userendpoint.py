@@ -62,3 +62,17 @@ async def update_user_password_endpoint(email: EmailStr, new_password: str, user
     except Exception as e:
         logger.error(f"Error updating password for user with email {email}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@userrouter.delete("/delete_user/{email}")
+async def delete_user_endpoint(email: EmailStr , user_details = Depends(get_user_details)):
+    if user_details.get("role") != "admin":
+        logger.error(f"Unauthorized user deletion attempt by user_id: {user_details.get('user_id')}")
+        raise HTTPException(status_code=403, detail="Operation not permitted. Admin role required.")
+    from db.endpoints.user import delete_user
+    try:
+        logger.info(f"Deleting user with email: {email}")
+        result = await delete_user(email)
+        return result
+    except Exception as e:
+        logger.error(f"Error deleting user with email {email}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
