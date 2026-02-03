@@ -42,14 +42,14 @@ async def get_user(email: str):
             email,
         )
         if row:
-            user_data = {
-                "user_id": str(row['user_id']),
-                "username": row['username'],
-                "email": row['email'],
-                "user_role": row['user_role'],
-                "created_at": row['created_at'],
-                "is_active": row['is_active']
-            }
+            user_data = dict(
+                user_id=str(row['user_id']),
+                username=row['username'],
+                email=row['email'],
+                user_role=row['user_role'],
+                created_at=row['created_at'],
+                is_active=row['is_active']
+            )
             logger.info(f"User data retrieved for email: {email}")
             return user_data
         else:

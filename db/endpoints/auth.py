@@ -7,7 +7,7 @@ from pydantic import BaseModel , EmailStr
 logger = set_system_logger("system_logger")
 
 
-async def authenticate_user(email: EmailStr, password: str) -> str:
+async def authenticate_user(email: EmailStr, password: str):
     logger.info(f"getting db connection pool for authentication")
     pool = await Database.get_pool()
     try:
@@ -27,7 +27,7 @@ async def authenticate_user(email: EmailStr, password: str) -> str:
             if row:
                 logger.info(f"Authentication successful for email: {email}")
                 # token_data = {"user_id": str(row['user_id']), "role": row['user_role'], "email": email, "password": row['password'], "is_active" : row['is_active']}
-                user_data = dict(user_id=str(row['user_id']), role=row['user_role'], hashed_password=row['password'] , is_active = row['is_active'])
+                user_data = dict(user_id=str(row['user_id']), role=row['user_role'], is_active=row['is_active'] , authenticated=True)
                 return user_data
             else:
                 logger.error(f"Authentication failed for email: {email}")
