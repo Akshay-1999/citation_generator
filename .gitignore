@@ -1,0 +1,37 @@
+# Virtual environment folders
+env/
+venv/
+.venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.pytest_cache/
+.cache
+
+# Environment variables file
+.env
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Database
+*.sqlite3
+
+#files
+test
+test1
+test2
