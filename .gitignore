@@ -35,3 +35,6 @@ pip-delete-this-directory.txt
 test
 test1
 test2
+
+# Uploaded files directory
+uploaded_files/
