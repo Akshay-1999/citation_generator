@@ -31,6 +31,7 @@ class customMiddleware(BaseHTTPMiddleware):
                 request.state.user = user_data.get("user_id")
                 request.state.role = user_data.get("role")
                 request.state.authenticated = user_data.get("authenticated")
+                request.state.email = user_data.get("email")
             else:
                 raise HTTPException(status_code=401, detail="Invalid email or password")    
         
@@ -46,10 +47,11 @@ app.add_middleware(CORSMiddleware,
 from db.userendpoint import userrouter
 from routes.main import mainrouter
 from routes.auth import auth_router 
-from routes.auth import auth_router
+from routes.file import file_router
 app.include_router(userrouter, prefix="/user", tags=["user"])
 app.include_router(mainrouter, prefix="/main", tags=["main"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(file_router, prefix="/file", tags=["file"])
 # app.include_router(test_router, prefix="/test", tags=["test"])
 
 @app.get("/")
