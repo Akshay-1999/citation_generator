@@ -15,7 +15,7 @@ async def authenticate_user(email: EmailStr, password: str):
             logger.info(f"Authenticating user with email: {email}")
             row = await connection.fetchrow(
                 """
-                SELECT user_id, password , user_role , is_active
+                SELECT user_id, password , user_role , is_active , email
                 FROM core.users
                 WHERE email = $1
                 AND password = crypt($2, password)
@@ -27,11 +27,12 @@ async def authenticate_user(email: EmailStr, password: str):
             if row:
                 logger.info(f"Authentication successful for email: {email}")
                 # token_data = {"user_id": str(row['user_id']), "role": row['user_role'], "email": email, "password": row['password'], "is_active" : row['is_active']}
-                user_data = dict(user_id=str(row['user_id']), role=row['user_role'], is_active=row['is_active'] , authenticated=True)
+                user_data = dict(user_id=str(row['user_id']), role=row['user_role'], is_active=row['is_active'] , authenticated=True , email=row['email'])
                 return user_data
             else:
                 logger.error(f"Authentication failed for email: {email}")
                 return None
-    except Exception as e:  
-        print(f"Error during authentication: {e}")
+    except Exception as e:      
+        logger.error(f"Error during authentication: {e}")
+        return None
 

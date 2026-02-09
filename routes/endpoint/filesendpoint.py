@@ -4,29 +4,38 @@ from pathlib import Path
 
 logger = set_system_logger("system_logger")
 
-def calculate_md5(file_path : str) -> str:
-    """Calculate MD5 checksum of a file."""
-    import hashlib
-
-    hash_md5 = hashlib.md5()
-    try:
-        logger.info(f"Calculating MD5 checksum for file: {file_path}")
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        checksum = hash_md5.hexdigest()
-        logger.info(f"MD5 checksum calculated for file {file_path}: {checksum}")
-        return checksum
-    except Exception as e:
-        logger.error(f"Error calculating MD5 checksum for file {file_path}: {e}")
-        return str(e)
-
-async def get_file_extension(file_path : str)-> str:
-    file_extension = Path(file_path).suffix
+async def get_file_extension(file_name : str)-> str:
+    allowed_format = ['.pdf' , '.txt' , '.doc' , '.docx']
+    file_extension = Path(file_name).suffix
+    if file_extension not in allowed_format:
+        logger.error(f"File extension {file_extension} is not allowed")
+        return None
     return(file_extension)
 
-async def check_file_name(file_name : str)-> str:
-    logger.info
+async def check_file_exists(file_name : str , md5 : str , user_id : str)-> str:
+    logger.info(f"Checking if file name {file_name} already exists")
+    pool = await Database.get_pool()
+    async with pool.acquire() as connection:
+        try:
+            row = await connection.fetchrow(
+                """
+                SELECT filename
+                FROM core.files
+                WHERE filename = $1 and md5 = $2 and user_id = $3 and deleted_at is null 
+                """,
+                file_name,
+                md5,
+                user_id
+            )
+            if row:
+                logger.info(f"File name {file_name} already exists")
+                return True
+            else:
+                logger.info(f"File name {file_name} does not exist")
+                return False
+        except Exception as e:
+            logger.error(f"Error checking file name {file_name}: {e}")
+            return False
     
 async def log_file_upload(
         user_id : str , 
@@ -34,7 +43,6 @@ async def log_file_upload(
         file_path : str , 
         extension : str ,  
         file_size : int , 
-        file_extension : str,
         md5 : str  ):
     """Log file upload details to the database."""
     logger.info(f"Getting DB connection pool for logging file upload: {filename}")
@@ -44,7 +52,7 @@ async def log_file_upload(
             logger.info(f"Logging file upload: {filename}, Size: {file_size}, Uploader: {user_id}")
             await connection.execute(
                 """
-                INSERT INTO core.file_uploads (user_id, 
+                INSERT INTO core.files (user_id, 
                 filename, 
                 file_path, 
                 extension, 
@@ -52,13 +60,14 @@ async def log_file_upload(
                 md5 ,
                 created_at , 
                 modified_at, 
-                deleted_at)
-                VALUES ($1, $2, $3, $4 , $5 , $6, now() , now() , null )
+                deleted_at,
+                processing_state)
+                VALUES ($1, $2, $3, $4 , $5 , $6, now() , now() , null , 'not_processed')
                 """,
                 user_id,
                 filename,
                 file_path, 
-                file_extension, 
+                extension, 
                 file_size, 
                 md5
             )
