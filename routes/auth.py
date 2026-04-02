@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel,EmailStr
 from typing import Optional
 from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 import os
 from db.endpoints.auth import authenticate_user
 from utils.logging_utils import set_system_logger
@@ -36,10 +36,7 @@ def set_secure_cookie(response, key: str, value: str, max_age: int = 3600):
 
 
 def login_required(request: Request):
-    authenticated = getattr(request.state, "authenticated", False)
-    user = getattr(request.state, "user", None)
-    role = getattr(request.state, "role", None)
-    return {"user": user, "role": role} if authenticated else None
+    return request.state.user if request.state.authenticated else None
 
 @auth_router.post("/login")
 async def login(auth_request: AuthRequest):
@@ -52,7 +49,7 @@ async def login(auth_request: AuthRequest):
         logger.warning(f"Failed login attempt for email: {auth_request.email}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = auth_manager_instance.create_authtoken(user_data)
-    response = RedirectResponse(url="/", status_code=302)
+    response = JSONResponse(content={"message": "Login successful", "email": auth_request.email})
     set_secure_cookie(response, key="auth_token", value=token)
     return response
 
