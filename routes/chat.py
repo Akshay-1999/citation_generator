@@ -23,7 +23,7 @@ class ChatRequest(BaseModel):
     thread_id: Optional[str] = None
     file_context: Optional[List[Dict[str, Any]]] = []
 
-@chat_router.post("/chat")
+@chat_router.post("/query")
 async def process_query(request: Request , chat_request : ChatRequest , session= Depends(login_required)):
     user_id = session["user_id"]
     
@@ -112,3 +112,19 @@ async def get_history(thread_id: str, session=Depends(login_required)):
     from db.endpoints.chat_thread import get_thread_messages
     messages = await get_thread_messages(thread_id)
     return messages
+class RenameThreadRequest(BaseModel):
+    thread_title: str
+
+@chat_router.delete("/delete/{thread_id}")
+async def delete_chat_thread(thread_id: str, session=Depends(login_required)):
+    user_id = session["user_id"]
+    from db.endpoints.chat_thread import delete_thread
+    result = await delete_thread(thread_id, user_id)
+    return result
+
+@chat_router.put("/rename/{thread_id}")
+async def rename_chat_thread(thread_id: str, request: RenameThreadRequest, session=Depends(login_required)):
+    user_id = session["user_id"]
+    from db.endpoints.chat_thread import rename_thread
+    result = await rename_thread(thread_id, request.thread_title, user_id)
+    return result

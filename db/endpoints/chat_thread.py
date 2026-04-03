@@ -18,8 +18,8 @@ async def create_chat_thread(user_id: str , thread_title : str = None):
         async with pool.acquire() as connection:
             await connection.execute(
                 """
-                INSERT INTO chathistory.chat_threads (thread_id, user_id, thread_title, thread_created_at, thread_updated_at)
-                VALUES ($1, $2, $3, NOW(), NOW())
+                INSERT INTO chathistory.chat_threads (thread_id, user_id, thread_title, thread_created_at, thread_updated_at , is_deleted)
+                VALUES ($1, $2, $3, NOW(), NOW() , false)
                 """,
                 thread_id, user_id , thread_title
             )
@@ -92,7 +92,7 @@ async def get_user_threads(user_id: str):
                 """
                 SELECT thread_id, thread_title as title, thread_status as status, thread_updated_at 
                 FROM chathistory.chat_threads 
-                WHERE user_id = $1 AND thread_status != 'deleted'
+                WHERE user_id = $1 AND is_deleted = false
                 ORDER BY thread_updated_at DESC
                 """,
                 user_id
@@ -138,4 +138,42 @@ async def get_thread_messages(thread_id: str):
         logger.error(f"--- Error fetching messages for thread {thread_id}: {e} ---")
         return []
 
+async def delete_thread(thread_id: str , user_id: str):
+    """
+    Delete a chat thread for a user in the chathistory schema.
+    """
+    try:
+        logger.info(f"=== Deleting chat thread for user: {thread_id} ===")
+        pool = await Database.get_pool()
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                UPDATE chathistory.chat_threads SET is_deleted = true WHERE thread_id = $1 AND user_id = $2
+                """,
+                thread_id , user_id
+            )
+        logger.info(f"=== Chat thread deleted successfully: {thread_id} ===")
+        return {"thread_id": thread_id}
+    except Exception as e:
+        logger.error(f"=== Error creating chat thread for user {user_id}: {e} ===")
+        raise
 
+async def rename_thread(thread_id: str, thread_title: str , user_id: str):
+    """
+    Rename a chat thread for a user in the chathistory schema.
+    """
+    try:
+        logger.info(f"=== Renaming chat thread for user: {thread_id} ===")
+        pool = await Database.get_pool()
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                UPDATE chathistory.chat_threads SET thread_title = $1 WHERE thread_id = $2 AND user_id = $3
+                """,
+                thread_title, thread_id , user_id
+            )
+        logger.info(f"=== Chat thread renamed successfully: {thread_id} ===")
+        return {"thread_id": thread_id}
+    except Exception as e:
+        logger.error(f"=== Error renaming chat thread for user {user_id}: {e} ===")
+        raise

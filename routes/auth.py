@@ -53,6 +53,12 @@ async def login(auth_request: AuthRequest):
     set_secure_cookie(response, key="auth_token", value=token)
     return response
 
+@auth_router.post("/logout")
+async def logout():
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    response.delete_cookie("auth_token")
+    return response
+
 
 
     

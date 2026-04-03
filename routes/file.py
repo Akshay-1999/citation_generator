@@ -88,3 +88,16 @@ async def upload_file(request: Request, file: UploadFile = File(...) , session =
         logger.info(f"=== File upload and embedding process completed for user {user_email}: {file.filename} ===")
         return {"filename": file.filename, "md5": mdf_checksum, "size": file_size , "extension": extension , "message": "File uploaded successfully will let you know once the processing is done"}
  
+@file_router.get("/list_files")
+async def list_files(session = Depends(login_required)):
+    user_id = session["user_id"]
+    from routes.endpoint.filesendpoint import get_user_files
+    files = await get_user_files(user_id)
+    return files
+
+@file_router.delete("/delete_file/{file_id}")
+async def delete_file(file_id: str, session = Depends(login_required)):
+    user_id = session["user_id"]
+    from routes.endpoint.filesendpoint import delete_file
+    result = await delete_file(file_id, user_id)
+    return result

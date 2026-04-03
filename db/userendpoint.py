@@ -4,6 +4,7 @@ from typing import Optional , Literal
 from utils.logging_utils import set_system_logger
 from routes.auth import  login_required
 from db.endpoints.user import create_user
+import os
 
 logger = set_system_logger("system_logger")
 
@@ -108,3 +109,20 @@ async def get_user_name_endpoint(request: Request , session = Depends(login_requ
     except Exception as e:
         logger.error(f"=== Error fetching user name for user_id {user_id}: {e} ===")
         raise HTTPException(status_code=500, detail=str(e))
+
+@userrouter.get("/session")
+async def get_session_endpoint(request: Request , session = Depends(login_required)):
+    if session is None:
+        logger.error("=== Unauthorized session fetch attempt: No active session ===")
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    
+    # Ensure username is available (fetch from DB if missing from older session tokens)
+    if isinstance(session, dict) and not session.get('username'):
+        from db.endpoints.user import get_user_name
+        user_id = session.get('user_id')
+        if user_id:
+            db_username = await get_user_name(user_id)
+            if db_username:
+                session['username'] = db_username
+                
+    return session
