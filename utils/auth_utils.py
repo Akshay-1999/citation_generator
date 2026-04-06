@@ -26,7 +26,7 @@ class auth_manger:
             token = self.serializer.dumps(encrypted_data.decode())
             return token
         else:
-            logger.error("Invalid userdata provided for token creation.")
+            logger.error("=== Invalid userdata provided for token creation ===")
             return None
         
     def validate_authtoken(self , token: str) -> Optional[dict]:
@@ -35,6 +35,5 @@ class auth_manger:
             decrpted_data = self.cipher.decrypt(encrypted_data.encode())
             return json.loads(decrpted_data.decode())
         except (BadSignature, SignatureExpired, Exception) as e:
-            logger.error(f"Token validation error: {e}")
+            logger.error(f"=== Token validation error: {e} ===")
             return None
-

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS core.files (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ DEFAULT NULL,
+    is_deleted BOOLEAN DEFAULT false,
 
     CONSTRAINT fk_files_user FOREIGN KEY (user_id)
         REFERENCES core.users (user_id)
@@ -47,3 +48,52 @@ CREATE TABLE IF NOT EXISTS core.files (
 -- =========================
 CREATE INDEX IF NOT EXISTS idx_files_user_id ON core.files(user_id);
 CREATE INDEX IF NOT EXISTS idx_files_md5 ON core.files(md5);
+
+
+-- =========================
+-- CHAT HISTORY TABLES chat_threads
+-- =========================
+CREATE TABLE chathistory.chat_threads (
+    thread_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    thread_title TEXT,
+    thread_status TEXT NOT NULL DEFAULT 'not-shared',
+    thread_created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    thread_updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT thread_status_check 
+        CHECK (thread_status IN ('shared', 'not-shared', 'deleted')),
+
+    CONSTRAINT fk_thread_user 
+        FOREIGN KEY (user_id)
+        REFERENCES core.users (user_id)
+        ON DELETE CASCADE
+);
+
+
+-- =========================
+-- messages Table
+-- =========================
+CREATE TABLE chathistory.messages (
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    thread_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role TEXT NOT NULL,
+    messages_content TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    citations JSONB,
+    confidence_level NUMERIC,
+    client_id TEXT,
+    sequence_number INTEGER,
+    file_context_name TEXT,
+
+    CONSTRAINT fk_message_thread 
+        FOREIGN KEY (thread_id)
+        REFERENCES chathistory.chat_threads (thread_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_message_user 
+        FOREIGN KEY (user_id)
+        REFERENCES core.users (user_id)
+        ON DELETE CASCADE
+);

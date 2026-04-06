@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Citation Generator - Dashboard">
+    <title>Recruitment Assistant — Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css?v=202603251532">
+    <!-- Markdown & Code highlighting support -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+
+<body>
+
+    <div class="chat-layout">
+
+        <!-- Sidebar -->
+        <aside class="chat-sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-logo-icon">💼</span>
+                <span class="sidebar-title">Recruitment Assistant</span>
+            </div>
+            <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+            <div class="chat-history" id="chatHistory">
+                <!-- Previous chats populate here -->
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-badge-mini" id="userBadge">
+                    <div class="avatar-mini" id="avatarLetter">...</div>
+                    <span id="userEmail">...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Progress Bar -->
+            <div id="uploadProgressBar" class="upload-progress-container" style="display: none;">
+                <div id="uploadProgressFill" class="upload-progress-fill"></div>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- Welcome message -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">📝</div>
+                    <h2>Recruitment Assistant</h2>
+                    <p>Start a new chat to begin screening candidates or answering recruitment queries.</p>
+                </div>
+            </div>
+
+            <!-- Toast popup for file upload notifications -->
+            <div id="toast" class="toast-popup" style="display:none;"></div>
+
+            <!-- Input Bar -->
+            <div class="chat-input-wrapper">
+                <div class="chat-input-bar">
+                    <!-- File upload button -->
+                    <button class="input-icon-btn" id="attachBtn" title="Upload a file">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8 55.49-8.48" />
+                        </svg>
+                    </button>
+                    <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx" hidden>
+
+                    <!-- Process Folder button -->
+                    <button class="input-icon-btn" id="folderBtn" title="Process a folder">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                        </svg>
+                    </button>
+
+                    <!-- Text input -->
+                    <textarea id="chatInput" class="chat-textarea" placeholder="Message Recruitment Assistant…"
+                        rows="1"></textarea>
+
+                    <!-- Send button -->
+                    <button class="send-btn" id="sendBtn" disabled title="Send message">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+    </div>
+
+    </main>
+    </div>
+
+    <!-- Folder Processing Modal -->
+    <div class="modal-overlay" id="folderModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Process Folder</h3>
+                <button class="close-modal" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="folderPath">Local Folder Path</label>
+                    <div class="input-with-action">
+                        <input type="text" id="folderPath" class="form-input"
+                            placeholder="Select a folder or enter path...">
+                        <button class="btn-browse" id="browseBtn" title="Select Folder">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <input type="file" id="hiddenFolderInput" webkitdirectory directory hidden>
+                    <small class="input-hint">Security Note: Browsers may only provide the folder name. You may still
+                        need to paste the full path if the server is on a different root.</small>
+                </div>
+                <div class="form-group">
+                    <label for="jdText">Job Description (JD)</label>
+                    <textarea id="jdText" class="form-textarea"
+                        placeholder="Paste the job description here..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-process" id="processBtn" disabled>Process Folder</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ====== Fetch & display username ====== */
+        (async function loadUserName() {
+            try {
+                const res = await fetch('/user/user_name', { credentials: 'include' });
+                if (res.ok) {
+                    const name = await res.json();
+                    if (name) {
+                        document.getElementById('userEmail').textContent = name;
+                        document.getElementById('avatarLetter').textContent = name.charAt(0).toUpperCase();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch user name:', e);
+            }
+        })();
+
+        /* ====== Elements ====== */
+        const chatMessages = document.getElementById('chatMessages');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+        const uploadOverlay = document.getElementById('uploadOverlay');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const newChatBtn = document.getElementById('newChatBtn');
+
+        /* ====== Helpers ====== */
+        function formatBytes(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+            return (b / 1048576).toFixed(2) + ' MB';
+        }
+
+        function hideWelcome() {
+            if (welcomeScreen) welcomeScreen.style.display = 'none';
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /* ====== Markdown Configuration ====== */
+        marked.setOptions({
+            highlight: function (code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            },
+            langPrefix: 'hljs language-',
+            breaks: true,
+            gfm: true
+        });
+
+        function addMessage(role, content, citations = [], confidence = null) {
+            hideWelcome();
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role}`;
+
+            if (role === 'assistant' && typeof content === 'string') {
+                // Render markdown for assistant
+                let html = marked.parse(content);
+
+                // Add citations if available
+                if (citations && citations.length > 0) {
+                    let citationsHtml = `
+                        <details class="citations-details">
+                            <summary class="citations-toggle">
+                                <span class="summary-icon">🔗</span>
+                                <span class="summary-text">${citations.length} Sources</span>
+                            </summary>
+                            <div class="citations-container">
+                    `;
+                    citations.forEach((match, idx) => {
+                        const sourceName = match.metadata?.file_name || match.metadata?.filename || match.metadata?.source || `Source ${idx + 1}`;
+                        const contentText = match.page_content || match.text || "No text available";
+                        citationsHtml += `
+                            <div class="citation-card">
+                                <span class="citation-source">📄 ${sourceName}</span>
+                                <div class="citation-text">"${contentText.substring(0, 200)}..."</div>
+                            </div>
+                        `;
+                    });
+                    citationsHtml += '</div></details>';
+                    html += citationsHtml;
+                }
+
+                bubble.innerHTML = html;
+            } else if (role === 'user') {
+                // Basic text for user, with newline support
+                bubble.innerHTML = `<p>${content.replace(/\n/g, '<br>')}</p>`;
+            } else {
+                bubble.innerHTML = content;
+            }
+
+            chatMessages.appendChild(bubble);
+            scrollToBottom();
+
+            // Re-highlight if any code blocks were added
+            if (role === 'assistant') {
+                bubble.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+        }
+
+        function addFileCard(data) {
+            showToast('✅ File uploaded successfully! Will let you know once the processing is done.', 'success');
+        }
+
+        function showToast(msg, type = 'error') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.display = 'flex';
+            toast.className = `toast-popup show toast-${type}`;
+            setTimeout(() => {
+                toast.className = 'toast-popup';
+                toast.style.display = 'none';
+            }, 5000);
+        }
+
+        /* ====== Textarea auto-resize ====== */
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+            sendBtn.disabled = !chatInput.value.trim();
+        });
+
+        /* ====== Send on Enter (text only) ====== */
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        sendBtn.addEventListener('click', handleSend);
+
+        /* ====== Attach file → upload immediately ====== */
+        attachBtn.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const allowed = ['.pdf', '.txt', '.doc', '.docx'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowed.includes(ext)) {
+                showToast('⚠️ File type not allowed. Please use PDF, TXT, DOC, or DOCX.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            await uploadFile(file);
+            fileInput.value = '';
+        });
+
+        /* ====== Chat State Management ====== */
+        const state = {
+            activeThreadId: null,
+            messageHistory: [], // Array of {role, content}
+            isNewChat: true
+        };
+
+        /* ====== Suggestion chips ====== */
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                chatInput.value = chip.dataset.prompt;
+                chatInput.dispatchEvent(new Event('input'));
+                chatInput.focus();
+            });
+        });
+
+        /* ====== New Chat ====== */
+        newChatBtn.addEventListener('click', () => {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(welcomeScreen);
+            welcomeScreen.style.display = '';
+            chatInput.value = '';
+            sendBtn.disabled = true;
+
+            // Reset State
+            state.activeThreadId = null;
+            state.messageHistory = [];
+            state.isNewChat = true;
+
+            // Remove active state from sidebar
+            document.querySelectorAll('.history-item').forEach(item => item.classList.remove('active'));
+
+            // Update URL
+            window.history.pushState({}, '', '/static/dashboard.html');
+        });
+
+        /* ====== Send handler (Updated for Thread & History) ====== */
+        async function handleSend() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            // Add user message to UI
+            addMessage('user', text);
+
+            // Add to history
+            const userMsg = { role: 'user', content: text };
+            // We don't push yet, we'll push after successful response to keep it in sync
+
+            // Reset input immediately
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendBtn.disabled = true;
+
+            // Show typing indicator
+            addMessage('assistant', '<div class="typing-dots"><span></span><span></span><span></span></div>');
+
+            try {
+                const payload = {
+                    query: text,
+                    history: state.messageHistory,
+                    thread_id: state.activeThreadId,
+                    file_names: []
+                };
+
+                const res = await fetch(`/chat/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
+                });
+
+                // Remove typing indicator
+                const dots = chatMessages.querySelector('.typing-dots');
+                if (dots) dots.closest('.chat-bubble').remove();
+
+                if (res.status === 401) {
+                    showToast('🔒 Session expired. Redirecting to login…', 'error');
+                    setTimeout(() => { window.location.href = '/static/login.html'; }, 1500);
+                    return;
+                }
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || `Server error (${res.status})`);
+                }
+
+                const data = await res.json();
+
+                // Handle response and thread_id
+                let botOutput = 'No response received.';
+                let newThreadId = data.thread_id || null;
+                let citations = data.citations || [];
+                let confidence = data.confidence_level || null;
+
+                if (typeof data.response === 'string') {
+                    botOutput = data.response;
+                } else if (data.response?.output) {
+                    botOutput = data.response.output;
+                    if (!newThreadId) newThreadId = data.response?.thread_id;
+                } else if (data.response) {
+                    botOutput = JSON.stringify(data.response);
+                }
+
+                if (newThreadId && !state.activeThreadId) {
+                    state.activeThreadId = newThreadId;
+                    state.isNewChat = false;
+                    // Update URL and Sidebar
+                    window.history.pushState({}, '', `/chat/${newThreadId}`);
+                    loadChatHistory(); // Refresh sidebar to show new chat
+                }
+
+                // Add to persistent history
+                state.messageHistory.push(userMsg);
+                state.messageHistory.push({ role: 'assistant', content: botOutput });
+
+                addMessage('assistant', botOutput, citations, confidence);
+
+            } catch (err) {
+                // Remove typing indicator on error
+                const dots = chatMessages.querySelector('.typing-dots');
+                if (dots) dots.closest('.chat-bubble').remove();
+
+                showToast('❌ ' + err.message, 'error');
+                addMessage('assistant', `⚠️ Something went wrong: ${err.message}`);
+            }
+        }
+
+        /* ====== Fetch & Render Sidebar Threads ====== */
+        async function loadChatHistory() {
+            try {
+                const res = await fetch('/chat/threads', { credentials: 'include' });
+                if (res.ok) {
+                    const threads = await res.json();
+                    const container = document.getElementById('chatHistory');
+                    container.innerHTML = '';
+
+                    threads.forEach(thread => {
+                        const item = document.createElement('div');
+                        item.className = 'history-item' + (state.activeThreadId === thread.thread_id ? ' active' : '');
+                        item.innerHTML = `
+                            <div class="history-item-icon">💬</div>
+                            <div class="history-item-content">
+                                <span class="history-title">${thread.title || 'New Chat'}</span>
+                                <span class="history-meta">Recruitment Chat</span>
+                            </div>
+                        `;
+                        item.addEventListener('click', () => switchThread(thread.thread_id));
+                        container.appendChild(item);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load thread history:', e);
+            }
+        }
+
+        /* ====== Switch Thread Logic ====== */
+        async function switchThread(threadId) {
+            if (state.activeThreadId === threadId) return;
+
+            chatMessages.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+            state.activeThreadId = threadId;
+            state.isNewChat = false;
+
+            try {
+                const res = await fetch(`/chat/history/${threadId}`, { credentials: 'include' });
+                if (res.ok) {
+                    const messages = await res.json();
+                    chatMessages.innerHTML = '';
+                    state.messageHistory = [];
+
+                    messages.forEach(msg => {
+                        addMessage(msg.role, msg.content);
+                        state.messageHistory.push({ role: msg.role, content: msg.content });
+                    });
+
+                    // Update UI active state
+                    document.querySelectorAll('.history-item').forEach(item => item.classList.remove('active'));
+                    // Logic to find specific item or just refresh
+                    loadChatHistory();
+                    window.history.pushState({}, '', `/chat/${threadId}`);
+                }
+            } catch (e) {
+                showToast('Failed to load chat history', 'error');
+            }
+        }
+
+        // Initial sidebar load
+        loadChatHistory();
+
+        /* ====== File upload via XHR ====== */
+        async function uploadFile(file) {
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressFill = document.getElementById('uploadProgressFill');
+
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            showToast('📁 Uploading: ' + file.name, 'success');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            progressFill.style.width = pct + '%';
+                        }
+                    });
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            try { reject(new Error(JSON.parse(xhr.responseText).detail)); }
+                            catch { reject(new Error('Upload failed')); }
+                        }
+                    });
+                    xhr.addEventListener('error', () => reject(new Error('Network error')));
+                    xhr.open('POST', '/file/upload');
+                    xhr.withCredentials = true;
+                    xhr.send(formData);
+                });
+
+                addFileCard(result);
+
+            } catch (err) {
+                if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+                    showToast('🔒 Session expired. Redirecting to login…', 'error');
+                    setTimeout(() => { window.location.href = '/static/login.html'; }, 1500);
+                } else {
+                    showToast('❌ Upload failed: ' + err.message, 'error');
+                }
+            } finally {
+                progressBar.style.display = 'none';
+            }
+        }
+
+        /* ====== Folder Modal Logic ====== */
+        const folderModal = document.getElementById('folderModal');
+        const closeModal = document.getElementById('closeModal');
+        const folderPathInput = document.getElementById('folderPath');
+        const jdTextArea = document.getElementById('jdText');
+        const processBtn = document.getElementById('processBtn');
+        const browseBtn = document.getElementById('browseBtn');
+        const hiddenFolderInput = document.getElementById('hiddenFolderInput');
+
+        folderBtn.addEventListener('click', () => {
+            folderModal.style.display = 'flex';
+            folderModal.classList.add('show');
+        });
+
+        browseBtn.addEventListener('click', () => {
+            hiddenFolderInput.click();
+        });
+
+        hiddenFolderInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                // Get the top-level folder name from the first file's relative path
+                const firstPath = files[0].webkitRelativePath;
+                const folderName = firstPath.split('/')[0];
+
+                // Note: We can't get the absolute path for security reasons, 
+                // but we can populate the name to help the user.
+                folderPathInput.value = folderName;
+                validateFolderInputs();
+            }
+        });
+
+        closeModal.addEventListener('click', () => {
+            folderModal.style.display = 'none';
+            folderModal.classList.remove('show');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === folderModal) {
+                folderModal.style.display = 'none';
+                folderModal.classList.remove('show');
+            }
+        });
+
+        function validateFolderInputs() {
+            const hasPath = folderPathInput.value.trim().length > 0;
+            const hasJD = jdTextArea.value.trim().length > 0;
+            processBtn.disabled = !(hasPath && hasJD);
+        }
+
+        folderPathInput.addEventListener('input', validateFolderInputs);
+        jdTextArea.addEventListener('input', validateFolderInputs);
+
+        processBtn.addEventListener('click', async () => {
+            const path = folderPathInput.value.trim();
+            const jd = jdTextArea.value.trim();
+
+            if (!path || !jd) return;
+
+            // UI Feedback
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<div class="typing-dots" style="margin:0 auto;"><span></span><span></span><span></span></div>';
+            showToast('📁 Starting folder processing...', 'success');
+
+            try {
+                const res = await fetch('/folder/process_folder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder_path: path, job_description: jd }),
+                    credentials: 'include'
+                });
+
+                if (res.status === 401) {
+                    showToast('🔒 Session expired. Redirecting to login…', 'error');
+                    setTimeout(() => { window.location.href = '/static/login.html'; }, 1500);
+                    return;
+                }
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: 'Failed to process folder' }));
+                    throw new Error(err.detail || 'Failed to process folder');
+                }
+
+                // Check if response is a file (blob)
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('spreadsheetml')) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+
+                    // Try to get filename from header
+                    const disposition = res.headers.get('content-disposition');
+                    let filename = 'screening_results.xlsx';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        filename = disposition.split('filename=')[1].split(';')[0].replace(/"/g, '');
+                    }
+
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    showToast('✅ Processing complete! Download started.', 'success');
+                } else {
+                    const data = await res.json();
+                    showToast(`✅ ${data.message || 'Processing complete.'}`, 'success');
+                }
+
+                // Close modal on success
+                folderModal.style.display = 'none';
+                folderModal.classList.remove('show');
+
+            } catch (err) {
+                showToast('❌ ' + err.message, 'error');
+            } finally {
+                processBtn.disabled = false;
+                processBtn.textContent = 'Process Folder';
+            }
+        });
+    </script>
+
+</body>
+
+</html>
