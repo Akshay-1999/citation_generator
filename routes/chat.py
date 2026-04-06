@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
     history: Optional[List[Dict[str, Any]]] = []
     thread_id: Optional[str] = None
     file_context: Optional[List[Dict[str, Any]]] = []
+    file_names: Optional[List[str]] = []
 
 @chat_router.post("/query")
 async def process_query(request: Request , chat_request : ChatRequest , session= Depends(login_required)):
@@ -33,6 +34,7 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
         history = chat_request.history
         thread_id = chat_request.thread_id
         file_context = chat_request.file_context or []
+        file_names = chat_request.file_names or []
         
         try:
             if thread_id is None:
@@ -58,7 +60,7 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
             logger.info(f"--- Agent instance: {agent_instance} ---")
             logger.info(f"=== Starting agent process for query: {query} ===")
             
-            response, verified_chunks, source = await agent_instance.run_agent(query=query, messages=history, user_id=user_id)
+            response, verified_chunks, source = await agent_instance.run_agent(query=query, messages=history, user_id=user_id, pinecone_filter=file_names)
             
             # Source usually indicates 'Document derived' or 'LLM derived'
             confidence = 1.0 if source == 'Document derived' else 0.5
@@ -68,7 +70,8 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
                 "message_id": str(uuid.uuid4()), 
                 "role": "user", 
                 "content": query,
-                "timestamp": now
+                "timestamp": now,
+                "file_names": file_names
             }
             assistant_message = {
                 "message_id": str(uuid.uuid4()), 
@@ -76,7 +79,8 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
                 "content": response,
                 "timestamp": now, 
                 "citations": verified_chunks, 
-                "confidence_level": confidence
+                "confidence_level": confidence,
+                "file_names": file_names
             }
             
             messages_to_store = [user_message, assistant_message] 

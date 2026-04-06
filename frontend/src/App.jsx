@@ -58,7 +58,15 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
           const file = e.target.files[0];
           if (file) {
             try {
-              await api.uploadFile(file);
+              const result = await api.uploadFile(file);
+              // Auto-select the uploaded file
+              if (result && result.file_id) {
+                const fileInfo = {
+                  file_id: result.file_id,
+                  filename: result.filename || file.name
+                };
+                handleFileSelect(fileInfo);
+              }
               alert('File uploaded successfully!');
             } catch (err) {
               alert('Upload failed: ' + err.message);
@@ -164,12 +172,20 @@ function App() {
   };
 
   const handleSendMessage = async (query) => {
-    const userMsg = { role: 'user', content: query };
+    // We no longer append text to the content; instead, we store it separately for UI
+    const userMsg = { 
+      role: 'user', 
+      content: query,
+      attachments: [...selectedFiles] 
+    };
+    
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
     try {
-      const data = await api.sendMessage(query, messages, activeThreadId);
+      const fileNames = selectedFiles.map(f => f.filename);
+      // Pass the original query and the context separately
+      const data = await api.sendMessage(query, messages, activeThreadId, fileNames, selectedFiles);
       const botOutput = data.response?.output || data.response || 'No response';
       const newThreadId = data.thread_id || data.response?.thread_id;
 

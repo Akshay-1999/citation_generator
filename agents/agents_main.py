@@ -13,7 +13,7 @@ from typing import List
 from dotenv import load_dotenv
 load_dotenv(override=True)  # loads .env from the current working directory
 
-from agents.agents_tool import get_tool_definitions , get_resume_mapping_tools
+from agents.agents_tool import get_tool_definitions , get_resume_mapping_tools 
 from agents.agent_utils import get_combined_system_prompt , extract_llm_suggested_chunks , verify_llm_chunks
 from utils.logging_utils import set_system_logger
 
@@ -55,7 +55,7 @@ class RAGAgent:
             max_iterations=4,
             early_stopping_method="generate")   
     
-    async def run_agent(self, query: str, messages: List[dict] = None, user_id= None):
+    async def run_agent(self, query: str, messages: List[dict] = None, user_id= None , pinecone_filter : List[str] | None = None):
         try:
             if user_id is None  :
                 logger.warning("--- No user_id provided to process_query, using default from agent initialization ---")
@@ -71,9 +71,19 @@ class RAGAgent:
                 HumanMessage(content=message["content"]) if message["role"] == "user" else AIMessage(content=message["content"]) for message in messages[-10:]
             ]
             
+            # Store for tool access
+            self.pinecone_filter = pinecone_filter 
+            
+            # If files are selected, inform the LLM internally so it knows the context
+            effective_input = query
+            if pinecone_filter and len(pinecone_filter) > 0:
+                files_list = ", ".join(pinecone_filter)
+                effective_input = f"[Selected Files: {files_list}]\n\n{query}"
+
             result = await self.agent.ainvoke({    
-                "input": query,
-                "chat_history": chat_history
+                "input": effective_input,
+                "chat_history": chat_history,
+                "pinecone_filter": pinecone_filter
             })
             logger.info(f"=== Agent result: output={result.get('output', '')[:200]}, steps={len(result.get('intermediate_steps', []))} ===")
             
@@ -115,7 +125,6 @@ class RAGAgent:
             error_message = f"Encountered an error: {str(e)}"
             return error_message , [] , 'Error'
 
-            
 class ResumeMappingAgent:
     def __init__(self , client , user_id = None , user_prompt = "" ):
         self.client = client

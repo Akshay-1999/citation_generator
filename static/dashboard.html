@@ -345,7 +345,8 @@
                 const payload = {
                     query: text,
                     history: state.messageHistory,
-                    thread_id: state.activeThreadId
+                    thread_id: state.activeThreadId,
+                    file_names: []
                 };
 
                 const res = await fetch(`/chat/chat`, {
@@ -504,7 +505,7 @@
                         }
                     });
                     xhr.addEventListener('error', () => reject(new Error('Network error')));
-                    xhr.open('POST', '/file/upload_file');
+                    xhr.open('POST', '/file/upload');
                     xhr.withCredentials = true;
                     xhr.send(formData);
                 });

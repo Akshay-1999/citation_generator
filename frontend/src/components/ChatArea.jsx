@@ -44,6 +44,7 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                             role={msg.role}
                             content={msg.content}
                             citations={msg.citations}
+                            attachments={msg.attachments}
                         />
                     ))
                 )}

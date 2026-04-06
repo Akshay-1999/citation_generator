@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS core.files (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ DEFAULT NULL,
+    is_deleted BOOLEAN DEFAULT false,
 
     CONSTRAINT fk_files_user FOREIGN KEY (user_id)
         REFERENCES core.users (user_id)

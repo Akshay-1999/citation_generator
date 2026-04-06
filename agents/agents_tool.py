@@ -19,10 +19,20 @@ def get_tool_definitions(agent_instance) -> list[Any]:
         """
         logger.info(f"--- agent using search_uploaded_documents for the: {query} ---")
         user_id = agent_instance.user_id
+        pinecone_filter = getattr(agent_instance, 'pinecone_filter', None)
+        
         logger.info(f"--- agent using search_uploaded_documents for the: {query} and user_id: {user_id} ---")
         try:
-            top_k = 50
-            result = await query_similar_documents(query , user_id , top_k)
+            if pinecone_filter is None or not pinecone_filter:
+                logger.info(f"--- agent using search_uploaded_documents for the: {query} and user_id: {user_id} without pinecone_filter ---")
+                pinecone_filter_dict = {}
+                top_k = 50
+                result = await query_similar_documents(query , user_id , top_k , pinecone_filter_dict)
+            else:
+                logger.info(f"--- agent using search_uploaded_documents for the: {query} and user_id: {user_id} and pinecone_filter: {pinecone_filter} ---")
+                pinecone_filter_dict = {"file_name": {"$in": pinecone_filter}}
+                top_k = 50
+                result = await query_similar_documents(query , user_id , top_k , pinecone_filter_dict)
         except asyncio.TimeoutError:
             logger.error(f"=== search_uploaded_documents timed out for the query: {query} ===")
             return {"matches": [], "no_results": True}

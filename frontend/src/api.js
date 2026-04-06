@@ -33,11 +33,17 @@ export const api = {
         return res.json();
     },
 
-    sendMessage: async (query, history, threadId) => {
+    sendMessage: async (query, history, threadId, fileNames = [], fileContext = []) => {
         const res = await fetch(`${BASE_URL}/chat/query`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, history, thread_id: threadId }),
+            body: JSON.stringify({ 
+                query, 
+                history, 
+                thread_id: threadId, 
+                file_names: fileNames,
+                file_context: fileContext 
+            }),
         });
         if (!res.ok) throw new Error('Failed to send message');
         return res.json();
@@ -73,7 +79,7 @@ export const api = {
         const res = await fetch(`${BASE_URL}/folder/process_folder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder_path: path, jd_text: jd }),
+            body: JSON.stringify({ folder_path: path, job_description: jd }),
         });
         if (!res.ok) throw new Error('Processing failed');
         return res; // Return response for blob handling

@@ -5,6 +5,7 @@ import uuid
 from typing import List
 from typing import Dict , Any , List
 from fastapi import HTTPException
+import os
 
 logger = set_system_logger("system_logger")
 
@@ -57,7 +58,7 @@ async def log_file_upload(
     async with pool.acquire() as connection:
         try:
             logger.info(f"--- Logging file upload: {filename}, Size: {file_size}, Uploader: {user_id} ---")
-            await connection.execute(
+            file_id = await connection.fetchval(
                 """
                 INSERT INTO core.files (user_id, 
                 filename, 
@@ -71,6 +72,7 @@ async def log_file_upload(
                 is_deleted,
                 processing_state)
                 VALUES ($1, $2, $3, $4 , $5 , $6, now() , now() , null , 'false' , 'not_processed')
+                RETURNING file_id
                 """,
                 user_id,
                 filename,
@@ -79,7 +81,8 @@ async def log_file_upload(
                 file_size, 
                 md5
             )
-            logger.info(f"=== File upload logged successfully for file: {filename} ===")
+            logger.info(f"=== File upload logged successfully for file: {filename}, ID: {file_id} ===")
+            return str(file_id)
         except Exception as e:
             logger.error(f"=== Error logging file upload for file {filename}: {e} ===")
 
@@ -270,7 +273,7 @@ async def delete_file(file_id: str, user_id: str) -> Dict[str, str]:
                 """
                 SELECT filename, file_path
                 FROM core.files
-                WHERE file_id = $1 AND user_id = $2 AND deleted_at IS NULL
+                WHERE file_id = $1 AND user_id = $2 AND is_deleted = false
                 """,
                 file_id,
                 user_id
@@ -297,11 +300,10 @@ async def delete_file(file_id: str, user_id: str) -> Dict[str, str]:
             # Delete associated chunks
             await connection.execute(
                 """
-                UPDATE core.document_chunks
-                SET deleted_at = now(), modified_at = now() , is_deleted = true
-                WHERE file_name = $1 AND deleted_at IS NULL and user_id = $2
+                DELETE FROM core.document_chunks
+                WHERE document_id = $1 
                 """,
-                filename
+                file_id
             )
             
             # Delete from Pinecone

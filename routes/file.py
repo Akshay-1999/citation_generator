@@ -12,7 +12,7 @@ logger = set_system_logger("system_logger")
 
 file_router = APIRouter()
 
-@file_router.post("/upload_file")
+@file_router.post("/upload")
 async def upload_file(request: Request, file: UploadFile = File(...) , session = Depends(login_required)): 
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -68,14 +68,14 @@ async def upload_file(request: Request, file: UploadFile = File(...) , session =
                     from routes.endpoint.filesendpoint import log_file_update
                     await log_file_update(file_id=file_id , md5=mdf_checksum , file_size=file_size)
                     logger.info(f"--- File saved successfully for user {user_email} ---")
-                    return {"filename": file.filename, "md5": mdf_checksum, "size": file_size , "extension": extension , "message": "File updated successfully"}
+                    return {"filename": file.filename, "file_id": str(file_id), "md5": mdf_checksum, "size": file_size , "extension": extension , "message": "File updated successfully"}
             else:
                 logger.info(f"--- No duplicate found for {file.filename}. Proceeding with upload ---")
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         logger.info(f"File saved successfully for user {user_email}: {file.filename}")
         from routes.endpoint.filesendpoint import log_file_upload
-        await log_file_upload(
+        file_id = await log_file_upload(
             user_id=user_id,
             filename=file.filename,
             file_path=file_path,
@@ -85,8 +85,8 @@ async def upload_file(request: Request, file: UploadFile = File(...) , session =
         )   
         from embedding.embedder import store_embeddings
         await store_embeddings(specific_files=[file_path], user_id=user_id)
-        logger.info(f"=== File upload and embedding process completed for user {user_email}: {file.filename} ===")
-        return {"filename": file.filename, "md5": mdf_checksum, "size": file_size , "extension": extension , "message": "File uploaded successfully will let you know once the processing is done"}
+        logger.info(f"=== File upload and embedding process completed for user {user_email} (ID: {file_id}): {file.filename} ===")
+        return {"filename": file.filename, "file_id": file_id, "md5": mdf_checksum, "size": file_size , "extension": extension , "message": "File uploaded successfully."}
  
 @file_router.get("/list_files")
 async def list_files(session = Depends(login_required)):
