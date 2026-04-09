@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
@@ -61,28 +60,19 @@ app.include_router(file_router, prefix="/file", tags=["file"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 
+# Health check root endpoint
+@app.get("/")
+def root():
+    return {"message": "Backend is running"}
 
-# Serve Static Files
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Serve React Assets specifically to avoid conflicts
-app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
+# Static file serving and SPA fallback removed for decoupled architecture (Vercel/Render)
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 
 app.add_middleware(CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# SPA Routing: Serve index.html for all non-API routes
-@app.get("/{full_path:path}")
-async def serve_react_app(request: Request, full_path: str):
-    # Skip API routes and static files
-    if full_path.startswith(("user", "main", "auth", "file", "chat", "folder", "static", "assets")):
-        raise HTTPException(status_code=404)
-    
-    index_path = os.path.join("frontend", "dist", "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return RedirectResponse(url="/static/login.html")

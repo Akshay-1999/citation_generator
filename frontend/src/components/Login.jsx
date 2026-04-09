@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, Loader2 } from 'lucide-react';
+import { BASE_URL } from '../api';
 
 const Login = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
@@ -15,8 +16,9 @@ const Login = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const res = await fetch('/auth/login', {
+            const res = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });

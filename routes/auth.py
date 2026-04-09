@@ -30,7 +30,7 @@ def set_secure_cookie(response, key: str, value: str, max_age: int = 3600):
         max_age=max_age,
         httponly=True,     # Prevent XSS - JavaScript cannot access
         secure=True,       # Only send over HTTPS
-        samesite="lax",    # CSRF protection
+        samesite="none",   # Required for cross-site cookie
         path="/"           # Available on all paths
     )
 
