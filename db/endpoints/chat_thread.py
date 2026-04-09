@@ -113,7 +113,7 @@ async def get_thread_messages(thread_id: str):
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT role, messages_content as content, created_at, citations, confidence_level 
+                SELECT role, messages_content as content, created_at, citations, confidence_level, file_context_name 
                 FROM chathistory.messages 
                 WHERE thread_id = $1 
                 ORDER BY sequence_number ASC
@@ -130,6 +130,20 @@ async def get_thread_messages(thread_id: str):
                         msg['citations'] = json.loads(msg['citations']) if isinstance(msg['citations'], str) else msg['citations']
                     except:
                         msg['citations'] = []
+                
+                # Parse and simplify attachments from file_context_name
+                if msg.get('file_context_name'):
+                    try:
+                        full_context = json.loads(msg['file_context_name']) if isinstance(msg['file_context_name'], str) else msg['file_context_name']
+                        if isinstance(full_context, list):
+                            msg['attachments'] = [{'filename': f.get('filename')} for f in full_context if isinstance(f, dict) and f.get('filename')]
+                        else:
+                            msg['attachments'] = []
+                    except:
+                        msg['attachments'] = []
+                else:
+                    msg['attachments'] = []
+
                 if msg.get('created_at'):
                     msg['timestamp'] = msg['created_at'].isoformat()
                 messages.append(msg)

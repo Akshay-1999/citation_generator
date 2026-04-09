@@ -111,6 +111,29 @@ function App() {
   const [isFileSelectionModalOpen, setIsFileSelectionModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
+  // Load persisted files when user is authenticated
+  useEffect(() => {
+    if (user.email) {
+      const savedFiles = localStorage.getItem(`selectedFiles_${user.email}`);
+      if (savedFiles) {
+        try {
+          setSelectedFiles(JSON.parse(savedFiles));
+        } catch (e) {
+          console.error('Failed to parse saved files:', e);
+        }
+      }
+    } else {
+      setSelectedFiles([]);
+    }
+  }, [user.email]);
+
+  // Persistent save to localStorage whenever selectedFiles or user.email changes
+  useEffect(() => {
+    if (user.email) {
+      localStorage.setItem(`selectedFiles_${user.email}`, JSON.stringify(selectedFiles));
+    }
+  }, [selectedFiles, user.email]);
+
   const checkAuth = async () => {
     try {
       const session = await api.fetchSession();
@@ -143,6 +166,7 @@ function App() {
       setThreads([]);
       setActiveThreadId(null);
       setMessages([]);
+      setSelectedFiles([]);
     } catch (err) {
       console.error('Logout failed:', err);
       setAuthStatus(false);
