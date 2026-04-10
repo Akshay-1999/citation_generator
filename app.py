@@ -68,11 +68,17 @@ def root():
 
 # Static file serving and SPA fallback removed for decoupled architecture (Vercel/Render)
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
+    ).split(",")
+]
 
-app.add_middleware(CORSMiddleware,
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origins = ["https://recuritment-application.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
