@@ -1,13 +1,12 @@
 from utils.auth_utils import auth_manger
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel,EmailStr
+from fastapi import APIRouter, HTTPException, Depends, Request, Form, status
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 import os
 from db.endpoints.auth import authenticate_user
 from utils.logging_utils import set_system_logger
-from fastapi import APIRouter, Request, Form,Depends, HTTPException,status
 
 
 logger = set_system_logger("system_logger")
@@ -16,6 +15,10 @@ load_dotenv()
 secret_key = os.getenv("secret_key")
 auth_manager_instance = auth_manger(secret_key=secret_key)
 
+# Detect environment: set APP_ENV=production in your Render env vars.
+# Locally this defaults to "development".
+IS_PRODUCTION = os.getenv("APP_ENV", "development").lower() == "production"
+
 auth_router = APIRouter()
 
 class AuthRequest(BaseModel):
@@ -23,15 +26,19 @@ class AuthRequest(BaseModel):
     password: str
 
 def set_secure_cookie(response, key: str, value: str, max_age: int = 3600):
-    """Helper to set secure cookie with all security flags"""
+    """
+    Set a cookie with appropriate security flags for the environment.
+    - Production (HTTPS): secure=True, samesite="None"  ← required for cross-origin
+    - Development (HTTP): secure=False, samesite="Lax"  ← browsers drop secure cookies on HTTP
+    """
     response.set_cookie(
         key=key,
         value=value,
         max_age=max_age,
-        httponly=True,     # Prevent XSS - JavaScript cannot access
-        secure=True,       # Only send over HTTPS
-        samesite="none",   # Required for cross-site cookie
-        path="/"           # Available on all paths
+        httponly=True,                                        # Always: block JS access (XSS)
+        secure=IS_PRODUCTION,                                 # True only on HTTPS
+        samesite="None" if IS_PRODUCTION else "Lax",          # None requires secure=True
+        path="/"
     )
 
 

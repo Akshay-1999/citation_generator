@@ -1,9 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
-from fastapi import Request
 import os
 
 
@@ -43,12 +42,33 @@ class customMiddleware(BaseHTTPMiddleware):
                 request.state.authenticated = False
         
     
+# ─── Middleware (LIFO order: last added = outermost = first to run) ──────────
+# 1. CORS must be OUTERMOST so preflight OPTIONS responses carry correct headers.
+#    Add it LAST so it wraps everything.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
+    ).split(",")
+]
+
+# 2. Custom middleware added first (will run INSIDE CORS wrapper)
 app.add_middleware(customMiddleware)
 
-# API Routers
+# 3. CORS added last (will run OUTERMOST — handles OPTIONS before anything else)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ─── Routers ─────────────────────────────────────────────────────────────────
 from db.userendpoint import userrouter
 from routes.main import mainrouter
-from routes.auth import auth_router 
+from routes.auth import auth_router
 from routes.file import file_router
 from routes.chat import chat_router
 from routes.folderprocesser import folder_processer_router
@@ -60,26 +80,13 @@ app.include_router(file_router, prefix="/file", tags=["file"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 
-# Health check root endpoint
+# ─── Health check ────────────────────────────────────────────────────────────
 @app.get("/")
 def root():
     return {"message": "Backend is running"}
 
-
-# Static file serving and SPA fallback removed for decoupled architecture (Vercel/Render)
-
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "ALLOWED_ORIGINS",
-        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
-    ).split(",")
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ─── Catch-all OPTIONS handler (fallback for any missed preflight) ────────────
+@app.options("/{full_path:path}")
+async def options_handler(request: Request):
+    """Explicit fallback for any OPTIONS preflight not matched by a router."""
+    return JSONResponse(content={}, status_code=200)
