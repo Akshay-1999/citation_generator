@@ -72,6 +72,7 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://loc
 
 app.add_middleware(CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin = ["https://recuritment-application.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
