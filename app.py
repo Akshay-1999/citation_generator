@@ -8,6 +8,12 @@ import os
 
 app = FastAPI()
 
+from fastapi import Request
+
+@app.options("/{full_path:path}")
+async def options_handler(request: Request):
+    return {}
+
 class customMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)   
@@ -45,13 +51,13 @@ class customMiddleware(BaseHTTPMiddleware):
 # ─── Middleware (LIFO order: last added = outermost = first to run) ──────────
 # 1. CORS must be OUTERMOST so preflight OPTIONS responses carry correct headers.
 #    Add it LAST so it wraps everything.
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "ALLOWED_ORIGINS",
-        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
-    ).split(",")
-]
+# ALLOWED_ORIGINS = [
+#     origin.strip()
+#     for origin in os.getenv(
+#         "ALLOWED_ORIGINS",
+#         "https://recuritment-application.onrender.com"
+#     ).split(",")
+# ]
 
 # 2. Custom middleware added first (will run INSIDE CORS wrapper)
 app.add_middleware(customMiddleware)
@@ -59,7 +65,7 @@ app.add_middleware(customMiddleware)
 # 3. CORS added last (will run OUTERMOST — handles OPTIONS before anything else)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["https://recuritment-application.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
