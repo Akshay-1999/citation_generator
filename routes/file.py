@@ -48,7 +48,7 @@ async def upload_file(request: Request, file: UploadFile = File(...) , session =
                 logger.info(f"--- Checking MD5: new={mdf_checksum} vs old={old_md5} ---")
                 if mdf_checksum == old_md5:
                     logger.info("--- File with same name and content already exists ---")
-                    raise HTTPException(status_code=400, detail="File with same name and content already exists")
+                    raise HTTPException(status_code=400, detail="A file with the same name and data is already in the database")
                 else:
                     logger.info("--- File with same name but different content detected ---")
                     # Remove the old file

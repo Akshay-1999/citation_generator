@@ -1,36 +1,43 @@
 export const BASE_URL = import.meta.env.VITE_API_URL || '';
 
+const handleResponse = async (res, defaultError = 'Request failed') => {
+    if (res.ok) return res.json();
+    let errorMessage = defaultError;
+    try {
+        const data = await res.json();
+        errorMessage = data.detail || defaultError;
+    } catch (e) {
+        // Fallback if response is not JSON
+    }
+    throw new Error(errorMessage);
+};
+
 export const api = {
     // Auth & Session
     fetchUserName: async () => {
         const res = await fetch(`${BASE_URL}/user/user_name`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Unauthorized');
-        return res.json();
+        return handleResponse(res, 'Unauthorized');
     },
 
     fetchSession: async () => {
         const res = await fetch(`${BASE_URL}/user/session`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch session');
-        return res.json();
+        return handleResponse(res, 'Failed to fetch session');
     },
 
     logout: async () => {
         const res = await fetch(`${BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
-        if (!res.ok) throw new Error('Logout failed');
-        return res.json();
+        return handleResponse(res, 'Logout failed');
     },
 
     // Threads & Chat
     fetchThreads: async () => {
         const res = await fetch(`${BASE_URL}/chat/threads`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch threads');
-        return res.json();
+        return handleResponse(res, 'Failed to fetch threads');
     },
 
     fetchHistory: async (threadId) => {
         const res = await fetch(`${BASE_URL}/chat/history/${threadId}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch history');
-        return res.json();
+        return handleResponse(res, 'Failed to fetch history');
     },
 
     sendMessage: async (query, history, threadId, fileNames = [], fileContext = []) => {
@@ -46,8 +53,7 @@ export const api = {
                 file_context: fileContext 
             }),
         });
-        if (!res.ok) throw new Error('Failed to send message');
-        return res.json();
+        return handleResponse(res, 'Failed to send message');
     },
 
     // Files & Folder Processing
@@ -59,14 +65,12 @@ export const api = {
             credentials: 'include',
             body: formData,
         });
-        if (!res.ok) throw new Error('Upload failed');
-        return res.json();
+        return handleResponse(res, 'Upload failed');
     },
 
     listFiles: async () => {
         const res = await fetch(`${BASE_URL}/file/list_files`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch files');
-        return res.json();
+        return handleResponse(res, 'Failed to fetch files');
     },
 
     deleteFile: async (fileId) => {
@@ -74,8 +78,7 @@ export const api = {
             method: 'DELETE',
             credentials: 'include',
         });
-        if (!res.ok) throw new Error('Failed to delete file');
-        return res.json();
+        return handleResponse(res, 'Failed to delete file');
     },
 
     processFolder: async (path, jd) => {
@@ -97,11 +100,7 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ detail: 'Failed to create user' }));
-            throw new Error(err.detail || 'Failed to create user');
-        }
-        return res.json();
+        return handleResponse(res, 'Failed to create user');
     },
 
     deleteUser: async (email) => {
@@ -109,14 +108,12 @@ export const api = {
             method: 'DELETE',
             credentials: 'include',
         });
-        if (!res.ok) throw new Error('Failed to delete user');
-        return res.json();
+        return handleResponse(res, 'Failed to delete user');
     },
 
     getUser: async (email) => {
         const res = await fetch(`${BASE_URL}/user/get_user/${encodeURIComponent(email)}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('User not found');
-        return res.json();
+        return handleResponse(res, 'User not found');
     },
 
     updatePassword: async (email, newPassword) => {
@@ -124,8 +121,7 @@ export const api = {
             method: 'PUT',
             credentials: 'include',
         });
-        if (!res.ok) throw new Error('Failed to update password');
-        return res.json();
+        return handleResponse(res, 'Failed to update password');
     },
 
     deleteThread: async (threadId) => {
@@ -133,8 +129,7 @@ export const api = {
             method: 'DELETE',
             credentials: 'include',
         });
-        if (!res.ok) throw new Error('Failed to delete thread');
-        return res.json();
+        return handleResponse(res, 'Failed to delete thread');
     },
 
     renameThread: async (threadId, threadTitle) => {
@@ -144,7 +139,6 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ thread_title: threadTitle }),
         });
-        if (!res.ok) throw new Error('Failed to rename thread');
-        return res.json();
+        return handleResponse(res, 'Failed to rename thread');
     }
 };
