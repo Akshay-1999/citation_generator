@@ -18,6 +18,7 @@ auth_manager_instance = auth_manger(secret_key=secret_key)
 # Detect environment: set APP_ENV=production in your Render env vars.
 # Locally this defaults to "development".
 IS_PRODUCTION = os.getenv("APP_ENV", "development").lower() == "production"
+logger.info(f"--- Auth System: Production Mode = {IS_PRODUCTION} ---")
 
 auth_router = APIRouter()
 

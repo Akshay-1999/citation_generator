@@ -40,6 +40,11 @@ class customMiddleware(BaseHTTPMiddleware):
         request.state.user = None
 
         token_data = request.cookies.get("auth_token")
+        
+        # 🐛 DEBUG: Log incoming cookies for troubleshooting
+        from utils.logging_utils import set_system_logger
+        debug_logger = set_system_logger("system_logger")
+        debug_logger.info(f"--- Incoming Cookies: {list(request.cookies.keys())} ---")
 
         if token_data:
             from utils.auth_utils import auth_manger
