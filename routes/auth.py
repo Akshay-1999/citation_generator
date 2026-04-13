@@ -38,7 +38,7 @@ def set_secure_cookie(response, key: str, value: str, max_age: int = 3600):
         max_age=max_age,
         httponly=True,                                        # Always: block JS access (XSS)
         secure=IS_PRODUCTION,                                 # True only on HTTPS
-        samesite="None" if IS_PRODUCTION else "Lax",          # None requires secure=True
+        SameSite=None,          # None requires secure=True
         path="/"
     )
 
