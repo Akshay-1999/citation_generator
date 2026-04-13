@@ -10,7 +10,7 @@ import { api } from './api';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 
-function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleRemoveFile, handleProcessFolder, onLogout }) {
+function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, handleRemoveFile, handleProcessFolder, onLogout }) {
   return (
     <div className="app-container">
       <Sidebar
@@ -34,7 +34,7 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         onOpenFolderModal={() => setIsFolderModalOpen(true)}
         onOpenFileSelection={() => setIsFileSelectionModalOpen(true)}
         selectedFiles={selectedFiles}
-        onRemoveFile={handleRemoveFile}
+        onRemoveFile={handleUnselectFile}
       />
 
       <FolderModal
@@ -47,6 +47,7 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         isOpen={isFileSelectionModalOpen}
         onClose={() => setIsFileSelectionModalOpen(false)}
         onSelect={handleFileSelect}
+        onDelete={handleRemoveFile}
         selectedFiles={selectedFiles}
       />
 
@@ -280,6 +281,10 @@ function App() {
     });
   };
 
+  const handleUnselectFile = (fileId) => {
+    setSelectedFiles(prev => prev.filter(f => f.file_id !== fileId));
+  };
+
   const handleRemoveFile = async (fileId) => {
     if (window.confirm('Are you sure you want to permanently delete this file?')) {
       try {
@@ -331,6 +336,7 @@ function App() {
               setIsFileSelectionModalOpen={setIsFileSelectionModalOpen}
               selectedFiles={selectedFiles}
               handleFileSelect={handleFileSelect}
+              handleUnselectFile={handleUnselectFile}
               handleRemoveFile={handleRemoveFile}
               handleProcessFolder={handleProcessFolder}
               onLogout={handleLogout}

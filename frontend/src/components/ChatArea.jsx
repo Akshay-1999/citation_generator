@@ -69,9 +69,9 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                                 <button 
                                     className="remove-attachment-btn" 
                                     onClick={() => onRemoveFile(file.file_id)}
-                                    title="Delete File"
+                                    title="Detach File"
                                 >
-                                    <Trash2 size={12} />
+                                    <X size={14} />
                                 </button>
                             </div>
                         ))}
