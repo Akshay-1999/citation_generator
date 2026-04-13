@@ -25,6 +25,8 @@ class Database:
             ssl_context = None
             if use_ssl:
                 ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
                 
             cls._pool = await asyncpg.create_pool(
                 user=DB_USER,

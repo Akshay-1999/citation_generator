@@ -4,8 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 
 app = FastAPI()
+
+load_dotenv()
+secret_key = os.getenv("secret_key")
+
 
 # ─── Custom Middleware ───────────────────────────────────────────────────────
 class customMiddleware(BaseHTTPMiddleware):
@@ -40,9 +45,6 @@ class customMiddleware(BaseHTTPMiddleware):
             from utils.auth_utils import auth_manger
             from dotenv import load_dotenv
 
-            load_dotenv()
-            secret_key = os.getenv("secret_key")
-
             auth_manager_instance = auth_manger(secret_key=secret_key)
             user_data = auth_manager_instance.validate_authtoken(token_data)
 
@@ -55,13 +57,21 @@ class customMiddleware(BaseHTTPMiddleware):
 
 # ─── Middleware Order (VERY IMPORTANT) ───────────────────────────────────────
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
+    ).split(",")
+]
+
 # 1️⃣ Custom middleware FIRST (inner)
 app.add_middleware(customMiddleware)
 
-# 2️⃣ CORS middleware LAST (outermost)
+# 2️⃣ CORS middleware LAST (outermost) — handles preflight OPTIONS before anything else
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://recuritment-application.onrender.com"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

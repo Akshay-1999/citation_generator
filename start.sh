@@ -1,6 +1,4 @@
 #!/bin/bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the application using the $PORT environment variable
-uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start the FastAPI application using Gunicorn with Uvicorn workers
+# We use 2 workers for the Render Free tier to balance performance and memory limits.
+gunicorn app:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
