@@ -63,12 +63,19 @@ class customMiddleware(BaseHTTPMiddleware):
 # ─── Middleware Order (VERY IMPORTANT) ───────────────────────────────────────
 
 ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "ALLOWED_ORIGINS",
-        "http://localhost:5173,https://citation-generator-teal.vercel.app,https://citation-generator-git-fix-auth-cors-akshay-1999s-projects.vercel.app"
-    ).split(",")
+    "http://localhost:5173",
+    "https://citation-generator-teal.vercel.app",
 ]
+
+# Add any additional origins from environment variable
+extra_origins = os.getenv("ALLOWED_ORIGINS")
+if extra_origins:
+    ALLOWED_ORIGINS.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
+
+# 🐛 DEBUG: Log allowed origins at startup
+from utils.logging_utils import set_system_logger
+startup_logger = set_system_logger("system_logger")
+startup_logger.info(f"--- CORS Allowed Origins: {ALLOWED_ORIGINS} ---")
 
 # 1️⃣ Custom middleware FIRST (inner)
 app.add_middleware(customMiddleware)

@@ -58,6 +58,10 @@ async def login(auth_request: AuthRequest):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = auth_manager_instance.create_authtoken(user_data)
     response = JSONResponse(content={"message": "Login successful", "email": auth_request.email})
+    
+    # 🐛 DEBUG: Log the flags being used for the cookie
+    logger.info(f"--- Setting Cookie: IS_PRODUCTION={IS_PRODUCTION}, SameSite={'None' if IS_PRODUCTION else 'Lax'} ---")
+    
     set_secure_cookie(response, key="auth_token", value=token)
     return response
 
