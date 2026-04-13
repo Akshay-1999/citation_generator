@@ -36,7 +36,8 @@ class Database:
                 database=DB_NAME,
                 min_size=2,
                 max_size=10,
-                ssl=ssl_context
+                ssl=ssl_context,
+                statement_cache_size=0
             )
         return cls._pool
     @classmethod
