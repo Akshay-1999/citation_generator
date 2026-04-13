@@ -61,7 +61,7 @@ ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:5173,http://localhost:3000,https://recuritment-application.onrender.com"
+        "http://localhost:5173,https://citation-generator-teal.vercel.app,https://citation-generator-git-fix-auth-cors-akshay-1999s-projects.vercel.app"
     ).split(",")
 ]
 
@@ -95,9 +95,4 @@ app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 # ─── Health Check ───────────────────────────────────────────────────────────
 @app.get("/")
 def root():
-    return {"message": "Backend is running"}
-
-# ─── SINGLE OPTIONS Handler (Fix Preflight) ──────────────────────────────────
-@app.options("/{full_path:path}")
-async def options_handler(request: Request):
-    return JSONResponse(content={}, status_code=200)
+    return {"message": "Backend is running"}
