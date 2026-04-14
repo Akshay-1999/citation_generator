@@ -232,10 +232,12 @@ class MemoryEfficientFileloader:
             suffix = Path(file_name).suffix 
             with open(file_path, "rb") as f:
                 data = f.read()
+            temp_dir = os.path.join(os.getcwd(), "temp_processing_files")
+            os.makedirs(temp_dir, exist_ok=True)
             with tempfile.NamedTemporaryFile(
                         mode='wb',
                         delete=False,
-                        dir=r"D:\Akshay\Work and Document\Training\LLM AND AI\citation\citation_generator\temp_processing_files",
+                        dir=temp_dir,
                         suffix=suffix) as tmp:
                         temp_path = tmp.name
                         tmp.write(data)  

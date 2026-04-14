@@ -121,7 +121,7 @@ async def query_similar_documents(query : str , user_id : str = None , top_k : i
                 "no_results" : True }
 
 
-async def store_embeddings(specific_files : List[str] = None, user_id : str = None, progeress_callback = None , processing_mode :str = "pymupdf4llm")->Dict[str,bool]:
+async def store_embeddings(specific_files : List[str] = None, user_id : str = None, progress_callback = None , processing_mode :str = "pymupdf4llm")->Dict[str,bool]:
     """
     Store embeddings for files into Pinecone under per-user namespace.
     user_id: REQUIRED for user uploads; set to None only for global/shared (e.g., shared_data).
@@ -192,7 +192,7 @@ async def store_embeddings(specific_files : List[str] = None, user_id : str = No
 
                 completed = i + len(batch_group)
  
-                if progeress_callback:
+                if progress_callback:
                     await progress_callback(completed, len(embedding_tasks), EMBEDDING_START, EMBEDDING_END)
                 
                 if i + 4 < len(embedding_tasks):
@@ -237,36 +237,37 @@ async def store_embeddings(specific_files : List[str] = None, user_id : str = No
                         }
                     })
 
-                    #strict : Use correct Pinecone namespace!
-                    max_retries = 3 
-                    for attempt in range(max_retries):
-                        try:
-                            logger.info(f"--- uploading vectors for : {Path(file_path).name} to namespace : {namespace} ---")
-                            await asyncio.get_event_loop().run_in_executor(
-                                None,
-                                lambda : index.upsert(
-                                    vectors=vectors,
-                                    namespace=namespace
-                                )
+                # Move upsert outside the vector building loop
+                max_retries = 3 
+                for attempt in range(max_retries):
+                    try:
+                        logger.info(f"--- uploading vectors for : {Path(file_path).name} to namespace : {namespace} ---")
+                        await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda : index.upsert(
+                                vectors=vectors,
+                                namespace=namespace
                             )
-                            logger.info(f"--- vector batches {batch_idx + 1} / {len(batch_result)} for file {Path(file_path).name} uploaded successfully ---")
-                            break
-                        except Exception as e:
-                            logger.warning(f"--- failed to upload vectors for file: {file_path}, batch: {batch_idx}, attempt: {attempt+1} ---")
-                            if attempt < max_retries:
-                                await asyncio.sleep(2 ** attempt)
-                            else:
-                                logger.error(f"=== all attempts failed to upload vectors for file: {file_path}, batch: {batch_idx} ===")
-                                raise
+                        )
+                        logger.info(f"--- vector batches {batch_idx + 1} / {len(batch_result)} for file {Path(file_path).name} uploaded successfully ---")
+                        break
+                    except Exception as e:
+                        logger.warning(f"--- failed to upload vectors for file: {file_path}, batch: {batch_idx}, attempt: {attempt+1} ---")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 ** attempt)
+                        else:
+                            logger.error(f"=== all attempts failed to upload vectors for file: {file_path}, batch: {batch_idx} ===")
+                            raise
 
-                    completed_upsert += 1
-                    if progeress_callback:
-                        await progress_callback(completed_upserts, batch_count, UPSERT_START, UPSERT_END)
-                upsert_time = time.perf_counter() - start_time
-                logger.info(f"=== vector upsert completed for file: {Path(file_path).name} - {completed_upsert} batches in {upsert_time:.2f} seconds ===")
-                results[file_path] = True
-                from routes.endpoint.filesendpoint import update_file_status
-                await update_file_status(file_path = file_path , status = "processed" , user_id = user_id)
+                completed_upsert += 1
+                if progress_callback:
+                    await progress_callback(completed_upsert, batch_count, UPSERT_START, UPSERT_END)
+            
+            upsert_time = time.perf_counter() - start_time
+            logger.info(f"=== vector upsert completed for file: {Path(file_path).name} - {completed_upsert} batches in {upsert_time:.2f} seconds ===")
+            results[file_path] = True
+            from routes.endpoint.filesendpoint import update_file_status
+            await update_file_status(file_path = file_path , status = "processed" , user_id = user_id)
                
 
         except Exception as e:
