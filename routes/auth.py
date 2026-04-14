@@ -15,9 +15,8 @@ load_dotenv()
 secret_key = os.getenv("secret_key")
 auth_manager_instance = auth_manger(secret_key=secret_key)
 
-# Detect environment: set APP_ENV=production in your Render env vars.
-# Locally this defaults to "development".
-IS_PRODUCTION = os.getenv("APP_ENV", "development").lower() == "production"
+# Detect environment: using 'ENV' from .env (set to 'production' on server)
+IS_PRODUCTION = os.getenv("ENV", "development").lower() == "production"
 logger.info(f"--- Auth System: Production Mode = {IS_PRODUCTION} ---")
 
 auth_router = APIRouter()
@@ -37,8 +36,8 @@ def set_secure_cookie(response, key: str, value: str, max_age: int = 3600):
         value=value,
         max_age=max_age,
         httponly=True,     # Prevent XSS - JavaScript cannot access
-        secure=True,       # Only send over HTTPS
-        samesite="lax",    # CSRF protection
+        secure=IS_PRODUCTION, # Only send over HTTPS in production
+        samesite="none" if IS_PRODUCTION else "lax", # Required for cross-origin HTTPS
         path="/"           # Available on all paths
     )
 

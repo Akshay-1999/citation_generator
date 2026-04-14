@@ -65,6 +65,7 @@ class customMiddleware(BaseHTTPMiddleware):
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://citation-generator-teal.vercel.app",
+    "http://192.168.0.69:5173",
 ]
 
 # Add any additional origins from environment variable
