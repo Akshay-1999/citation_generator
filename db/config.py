@@ -5,6 +5,10 @@ import asyncpg
 import json
 import asyncio
 import ssl
+from utils.logging_utils import set_system_logger
+
+logger = set_system_logger("system_logger")
+
 
 load_dotenv()
 DB_USER = os.getenv("db_user")
@@ -21,9 +25,15 @@ class Database:
     @classmethod
     async def get_pool(cls):
         if cls._pool is None:
-            use_ssl = False if ENV == "local" else True
+            # Robust SSL handling: Default to False, only True if explicitly set to 'production' 
+            # and host is not localhost. Local Postgres typically rejects SSL.
+            use_ssl = (ENV == "production" and DB_HOST not in ["localhost", "127.0.0.1"])
+            
             ssl_context = None
             if use_ssl:
+                if logger:
+                    logger.info("=== Using SSL for Database Connection ===")
+
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
