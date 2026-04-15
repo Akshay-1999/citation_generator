@@ -81,15 +81,19 @@ export const api = {
         return handleResponse(res, 'Failed to delete file');
     },
 
-    processFolder: async (path, jd) => {
+    processFolder: async (files, jd) => {
+        const formData = new FormData();
+        formData.append('job_description', jd);
+        for (const file of files) {
+            formData.append('files', file);
+        }
         const res = await fetch(`${BASE_URL}/folder/process_folder`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder_path: path, job_description: jd }),
+            body: formData,
         });
         if (!res.ok) throw new Error('Processing failed');
-        return res; // Return response for blob handling
+        return res;
     },
 
     // Admin / User Management

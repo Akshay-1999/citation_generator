@@ -226,9 +226,10 @@ function App() {
     }
   };
 
-  const handleProcessFolder = async (path, jd) => {
+  const handleProcessFolder = async (files, jd) => {
     try {
-      const res = await api.processFolder(path, jd);
+      const res = await api.processFolder(files, jd);
+
       if (res.headers.get('content-type')?.includes('spreadsheetml')) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -239,9 +240,12 @@ function App() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Processing completed.');
       }
     } catch (err) {
-      alert(`Error processing folder: ${err.message}`);
+      alert(`Error processing: ${err.message}`);
     }
   };
 
