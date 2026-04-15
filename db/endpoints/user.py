@@ -10,7 +10,7 @@ async def create_user(user_name: str, email: str, user_role: str, password: str)
     async with pool.acquire() as connection:
         row = await connection.fetchrow(
             """
-            select user_id from core.users where email = $1
+            select user_id from core.users where email = $1 and is_active = true
             """,
             email,
         )
@@ -94,7 +94,7 @@ async def delete_user(email: str):
         logger.info(f"=== User with email: {email} deleted successfully ===")
         return {"message": "User deleted successfully."}
 
-async def get_user_name(user_id: int):
+async def get_user_name(user_id: str):
     logger.info("--- Getting DB connection pool for fetching user name ---")
     pool = await Database.get_pool()
     async with pool.acquire() as connection:
@@ -112,3 +112,41 @@ async def get_user_name(user_id: int):
         else:
             logger.error(f"=== No user found with user_id: {user_id} ===")
             return None
+
+async def update_role(email: str, role: str):
+    logger.info("--- Getting DB connection pool for updating user role ---")
+    pool = await Database.get_pool()
+    async with pool.acquire() as connection:
+        logger.info(f"--- Updating role for user with email: {email} ---")
+        result = await connection.execute(
+            """
+            UPDATE core.users 
+            SET user_role = $1            
+            WHERE email = $2
+            """,
+            role, email
+        )
+        if result == "UPDATE 0":
+            logger.error(f"=== No user found with email: {email} to update role ===")
+            return {"error": "No user found with the provided email."}
+        logger.info(f"=== Role updated successfully for user with email: {email} ===")
+        return {"message": "Role updated successfully."}
+
+async def update_active_status(email: str, is_active: bool):
+    logger.info("--- Getting DB connection pool for updating user active status ---")
+    pool = await Database.get_pool()
+    async with pool.acquire() as connection:
+        logger.info(f"--- Updating active status for user with email: {email} ---")
+        result = await connection.execute(
+            """
+            UPDATE core.users 
+            SET is_active = $1            
+            WHERE email = $2
+            """,
+            is_active, email
+        )
+        if result == "UPDATE 0":
+            logger.error(f"=== No user found with email: {email} to update active status ===")
+            return {"error": "No user found with the provided email."}
+        logger.info(f"=== Active status updated successfully for user with email: {email} ===")
+        return {"message": "Active status updated successfully."}

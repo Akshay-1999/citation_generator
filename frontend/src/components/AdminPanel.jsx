@@ -87,6 +87,27 @@ const AdminPanel = () => {
         }
     };
 
+    const handleUpdateRole = async (email, newRole) => {
+        try {
+            await api.updateRole(email, newRole);
+            setUsers(prev => prev.map(u => u.email === email ? { ...u, user_role: newRole } : u));
+            alert('Role updated successfully');
+        } catch (err) {
+            alert('Role update failed: ' + err.message);
+        }
+    };
+
+    const handleUpdateStatus = async (email, newStatus) => {
+        const isActive = newStatus === 'active';
+        try {
+            await api.updateActiveStatus(email, isActive);
+            setUsers(prev => prev.map(u => u.email === email ? { ...u, is_active: isActive } : u));
+            alert('Status updated successfully');
+        } catch (err) {
+            alert('Status update failed: ' + err.message);
+        }
+    };
+
     return (
         <div className="admin-container animate-fade-in">
             <div className="admin-header">
@@ -148,14 +169,47 @@ const AdminPanel = () => {
                                     </div>
                                 </td>
                                 <td>
-                                    <span className={`role-badge ${user.user_role}`}>
-                                        {user.user_role}
-                                    </span>
+                                    <select 
+                                        className={`role-badge ${user.user_role}`}
+                                        value={user.user_role}
+                                        onChange={(e) => handleUpdateRole(user.email, e.target.value)}
+                                        style={{
+                                            border: 'none',
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                            fontWeight: 600,
+                                            padding: '4px 8px',
+                                            borderRadius: '99px'
+                                        }}
+                                    >
+                                        <option value="user">user</option>
+                                        <option value="admin">admin</option>
+                                    </select>
                                 </td>
                                 <td>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div>
-                                        Active
+                                        <div style={{ 
+                                            width: '8px', 
+                                            height: '8px', 
+                                            borderRadius: '50%', 
+                                            background: user.is_active ? 'var(--success)' : 'var(--error)' 
+                                        }}></div>
+                                        <select
+                                            value={user.is_active ? 'active' : 'inactive'}
+                                            onChange={(e) => handleUpdateStatus(user.email, e.target.value)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                outline: 'none',
+                                                cursor: 'pointer',
+                                                fontWeight: 500,
+                                                color: user.is_active ? 'var(--success)' : 'var(--error)',
+                                                padding: '2px 4px'
+                                            }}
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
                                     </div>
                                 </td>
                                 <td style={{ textAlign: 'right' }}>

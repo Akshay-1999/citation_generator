@@ -126,3 +126,39 @@ async def get_session_endpoint(request: Request , session = Depends(login_requir
                 session['username'] = db_username
                 
     return session
+
+@userrouter.put("/update_role/{email}")
+async def update_role_endpoint(request: Request , email: EmailStr, role: str, session = Depends(login_required)):
+    if session is None:
+        logger.error("=== Unauthorized user role update attempt: No active session ===")
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user_details_role = session.get('role')
+    if user_details_role != "admin" or user_details_role is None:
+        logger.error(f"=== Unauthorized user role update attempt by user_id: {session.get('user_id')} ===")
+        raise HTTPException(status_code=403, detail="Operation not permitted. Admin role required.")
+    from db.endpoints.user import update_role
+    try:
+        logger.info(f"=== Updating role for user with email: {email} ===")
+        result = await update_role(email, role)
+        return result
+    except Exception as e:
+        logger.error(f"=== Error updating role for user with email {email}: {e} ===")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@userrouter.put("/update_active_status/{email}")
+async def update_active_status_endpoint(request: Request , email: EmailStr, is_active: bool, session = Depends(login_required)):
+    if session is None:
+        logger.error("=== Unauthorized user active status update attempt: No active session ===")
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user_details_role = session.get('role')
+    if user_details_role != "admin" or user_details_role is None:
+        logger.error(f"=== Unauthorized user active status update attempt by user_id: {session.get('user_id')} ===")
+        raise HTTPException(status_code=403, detail="Operation not permitted. Admin role required.")
+    from db.endpoints.user import update_active_status
+    try:
+        logger.info(f"=== Updating active status for user with email: {email} ===")
+        result = await update_active_status(email, is_active)
+        return result
+    except Exception as e:
+        logger.error(f"=== Error updating active status for user with email {email}: {e} ===")
+        raise HTTPException(status_code=500, detail=str(e))
