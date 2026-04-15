@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Create schema if it doesn't exist
 CREATE SCHEMA IF NOT EXISTS core;
+CREATE SCHEMA IF NOT EXISTS chathistory;
 
 -- =========================
 -- USERS TABLE

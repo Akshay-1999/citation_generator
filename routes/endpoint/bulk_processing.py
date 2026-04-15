@@ -73,6 +73,10 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
     all_results = []
     
     print(f"--- Starting Bulk Processing for {len(file_names)} resumes ---")
+
+    if not file_names:
+        print("--- WARNING: No file names provided for bulk processing ---")
+        return
     
     for file_name in file_names:
         print(f"\n[Processing]: {file_name}...")

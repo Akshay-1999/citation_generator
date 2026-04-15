@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, FileText, Trash2, Check, Loader2 } from 'lucide-react';
 import { api } from '../api';
 
-const FileSelectionModal = ({ isOpen, onClose, onSelect, selectedFiles }) => {
+const FileSelectionModal = ({ isOpen, onClose, onSelect, onDelete, selectedFiles }) => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -28,14 +28,12 @@ const FileSelectionModal = ({ isOpen, onClose, onSelect, selectedFiles }) => {
 
     const handleDelete = async (e, fileId) => {
         e.stopPropagation();
-        if (!window.confirm('Are you sure you want to permanently delete this file?')) return;
-        
         setDeletingId(fileId);
         try {
-            await api.deleteFile(fileId);
+            await onDelete(fileId);
             setFiles(files.filter(f => f.file_id !== fileId));
         } catch (err) {
-            alert('Failed to delete file: ' + err.message);
+            console.error('Delete failed:', err);
         } finally {
             setDeletingId(null);
         }

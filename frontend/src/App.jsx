@@ -10,7 +10,7 @@ import { api } from './api';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 
-function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleRemoveFile, handleProcessFolder, onLogout }) {
+function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, handleRemoveFile, handleProcessFolder, onLogout }) {
   return (
     <div className="app-container">
       <Sidebar
@@ -34,7 +34,7 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         onOpenFolderModal={() => setIsFolderModalOpen(true)}
         onOpenFileSelection={() => setIsFileSelectionModalOpen(true)}
         selectedFiles={selectedFiles}
-        onRemoveFile={handleRemoveFile}
+        onRemoveFile={handleUnselectFile}
       />
 
       <FolderModal
@@ -47,6 +47,7 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         isOpen={isFileSelectionModalOpen}
         onClose={() => setIsFileSelectionModalOpen(false)}
         onSelect={handleFileSelect}
+        onDelete={handleRemoveFile}
         selectedFiles={selectedFiles}
       />
 
@@ -225,9 +226,10 @@ function App() {
     }
   };
 
-  const handleProcessFolder = async (path, jd) => {
+  const handleProcessFolder = async (files, jd) => {
     try {
-      const res = await api.processFolder(path, jd);
+      const res = await api.processFolder(files, jd);
+
       if (res.headers.get('content-type')?.includes('spreadsheetml')) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -238,9 +240,12 @@ function App() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Processing completed.');
       }
     } catch (err) {
-      alert(`Error processing folder: ${err.message}`);
+      alert(`Error processing: ${err.message}`);
     }
   };
 
@@ -280,6 +285,10 @@ function App() {
     });
   };
 
+  const handleUnselectFile = (fileId) => {
+    setSelectedFiles(prev => prev.filter(f => f.file_id !== fileId));
+  };
+
   const handleRemoveFile = async (fileId) => {
     if (window.confirm('Are you sure you want to permanently delete this file?')) {
       try {
@@ -293,8 +302,8 @@ function App() {
 
   if (authStatus === null) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
-        <Loader2 className="animate-spin" color="#3b82f6" size={48} />
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f8fa' }}>
+        <Loader2 className="animate-spin" color="#C41230" size={48} />
       </div>
     );
   }
@@ -331,6 +340,7 @@ function App() {
               setIsFileSelectionModalOpen={setIsFileSelectionModalOpen}
               selectedFiles={selectedFiles}
               handleFileSelect={handleFileSelect}
+              handleUnselectFile={handleUnselectFile}
               handleRemoveFile={handleRemoveFile}
               handleProcessFolder={handleProcessFolder}
               onLogout={handleLogout}

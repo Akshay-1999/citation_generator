@@ -1,7 +1,7 @@
 import hashlib
 import os
 import shutil
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -19,97 +19,101 @@ from routes.endpoint.bulk_processing import process_resumes_to_excel
 logger = set_system_logger("system_logger")
 folder_processer_router = APIRouter()
 
-class FolderProcesserRequest(BaseModel):
-    folder_path: str
-    job_description: Optional[str] = None
+# Resolve project root (two levels up from this file: routes/ -> project_root/)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def calculate_md5(file_path: str) -> str:
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+UPLOAD_DIR = "uploaded_files"
 
+def calculate_md5_bytes(data: bytes) -> str:
+    """Calculate MD5 from raw bytes."""
+    return hashlib.md5(data).hexdigest()
 
-async def scan_folder(folder_path):
-    folder_data = {}
-    for root, _, filenames in os.walk(folder_path):
-        for file in filenames:
-            extension = await get_file_extension(file)
-            if extension is not None:
-                file_data = {
-                    "file_name" : file,
-                    "file_path" : os.path.join(root, file),
-                    "extension" : extension,
-                    "md5" : calculate_md5(os.path.join(root, file)),
-                    "file_size" : os.path.getsize(os.path.join(root, file))
-                } 
-            folder_data[file] = file_data
-    return folder_data
-
-async def write_file_to_folder(source_path: str, target_path: str) -> bool:
-    try:
-        shutil.copy2(source_path, target_path)
-        return True
-    except Exception as e:
-        logger.error(f"=== Error copying file from {source_path} to {target_path}: {e} ===")
-        return False
 
 @folder_processer_router.post("/process_folder")
-async def process_folder(folder_request: FolderProcesserRequest, session = Depends(login_required)):
+async def process_folder(
+    job_description: str = Form(...),
+    files: List[UploadFile] = File(...),
+    session = Depends(login_required)
+):
+    """
+    Receive uploaded resume files + JD from the browser.
+    - Saves new/updated files to uploaded_files/
+    - Embeds any new or changed files
+    - Runs bulk screening against the JD
+    - Returns an Excel file with results
+    """
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     user_id = session.get('user_id')
     user_email = session.get('email')
-    folder_path = folder_request.folder_path
-    job_description = folder_request.job_description
-    if job_description is None:
-        raise HTTPException(status_code=400, detail="Job description is required")
 
-    logger.info(f"=== Started folder processing for user: {user_email}, Path: {folder_path} ===")
-    file_to_process = []
-    file_to_map = []
-    folder_data = await scan_folder(folder_path)
-    for file in folder_data.values():
-        file_name = file["file_name"]
-        file_to_map.append(file_name)
-        file_path = file["file_path"]
-        extension = file["extension"]
-        md5 = file["md5"]
-        file_size = file["file_size"]
+    logger.info(f"=== Started folder processing for user: {user_email}, Files: {len(files)} ===")
+
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    file_to_process = []  # Files that need embedding (new or changed)
+    file_to_map = []      # All file names for bulk screening
+
+    for uploaded_file in files:
+        # Strip folder prefix — browsers include it when using directory picker
+        # e.g. "test/resume.pdf" → "resume.pdf"
+        file_name = os.path.basename(uploaded_file.filename)
         
+        # Check file extension
+        extension = await get_file_extension(file_name)
+        if extension is None:
+            logger.warning(f"=== Skipping unsupported file: {file_name} ===")
+            continue
+        
+        file_to_map.append(file_name)
+
+        # Read file content
+        content = await uploaded_file.read()
+        file_size = len(content)
+        md5 = calculate_md5_bytes(content)
+
+        # Check if file already exists in DB
         file_exists = await check_file_exists(file_name, user_id)
+        
         if file_exists:
             old_file_name, old_md5, old_file_path, old_file_id = file_exists
             if old_md5 == md5:
+                logger.info(f"--- File unchanged, skipping: {file_name} ---")
                 continue
             
-            filter = {"file_name": {"$in": [file_name]}, "user_id": {"$in": [user_id]}}
+            # File changed — delete old vectors and re-process
+            filter_criteria = {"file_name": {"$in": [file_name]}, "user_id": {"$in": [user_id]}}
             namespace = f"estuate-data-{user_id}"
-            await delete_pinecone_index(pinecone_filter=filter, namespace=namespace)
+            await delete_pinecone_index(pinecone_filter=filter_criteria, namespace=namespace)
             
             try:
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
-                if await write_file_to_folder(file_path, old_file_path):
-                    await log_file_update(old_file_id, md5, file_size)
-                    file_to_process.append(old_file_path)
+                file_path = old_file_path
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                await log_file_update(old_file_id, md5, file_size)
+                file_to_process.append(file_path)
+                logger.info(f"--- Updated existing file: {file_name} ---")
             except Exception as e:
                 logger.error(f"=== Error updating file {file_name}: {e} ===")
                 continue
         else:
-            UPLOAD_DIR = "uploaded_files"
-            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            # New file — save to uploaded_files/
             new_file_path = os.path.join(UPLOAD_DIR, file_name)
-            try:    
-                if await write_file_to_folder(file_path, new_file_path):
-                    await log_file_upload(user_id, file_name, new_file_path, extension, file_size, md5)
-                    file_to_process.append(new_file_path)
+            try:
+                with open(new_file_path, "wb") as f:
+                    f.write(content)
+                await log_file_upload(user_id, file_name, new_file_path, extension, file_size, md5)
+                file_to_process.append(new_file_path)
+                logger.info(f"--- Saved new file: {file_name} ---")
             except Exception as e:
-                logger.error(f"=== Error uploading file {file_name}: {e} ===")
+                logger.error(f"=== Error saving file {file_name}: {e} ===")
                 continue
 
+    # Embed new/changed files
     try:
         if file_to_process:
             logger.info(f"=== Starting embedding process for {len(file_to_process)} files ===")
@@ -122,6 +126,17 @@ async def process_folder(folder_request: FolderProcesserRequest, session = Depen
     # Bulk Screening Logic
     try:
         output_filename = f"bulk_screening_{user_id[:8]}.xlsx"
+
+        # Remove stale file from any previous run
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+            logger.info(f"=== Removed stale output file: {output_filename} ===")
+
+        if not file_to_map:
+            logger.warning("=== No supported files found in the uploaded files ===")
+            return JSONResponse(content={"message": "No supported files (PDF) found in the uploaded files."})
+
+        logger.info(f"=== Starting bulk screening for {len(file_to_map)} files ===")
         await process_resumes_to_excel(job_description, file_to_map, user_id, output_filename)
         
         if os.path.exists(output_filename):
@@ -135,11 +150,3 @@ async def process_folder(folder_request: FolderProcesserRequest, session = Depen
     except Exception as e:
         logger.error(f"=== Error during bulk screening: {e} ===")
         raise HTTPException(status_code=500, detail=f"Error mapping resumes: {str(e)}")
-
-
-    
-            
-
-    
-    
-    
