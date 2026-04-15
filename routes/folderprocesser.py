@@ -19,6 +19,9 @@ from routes.endpoint.bulk_processing import process_resumes_to_excel
 logger = set_system_logger("system_logger")
 folder_processer_router = APIRouter()
 
+# Resolve project root (two levels up from this file: routes/ -> project_root/)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 class FolderProcesserRequest(BaseModel):
     folder_path: str
     job_description: Optional[str] = None
@@ -32,6 +35,15 @@ def calculate_md5(file_path: str) -> str:
 
 
 async def scan_folder(folder_path):
+    # Resolve relative paths against the project root
+    if not os.path.isabs(folder_path):
+        folder_path = os.path.join(BASE_DIR, folder_path)
+
+    if not os.path.exists(folder_path):
+        logger.error(f"=== Folder path does not exist: {folder_path} ===")
+        return {}
+
+    logger.info(f"=== Scanning folder: {folder_path} ===")
     folder_data = {}
     for root, _, filenames in os.walk(folder_path):
         for file in filenames:
@@ -43,8 +55,9 @@ async def scan_folder(folder_path):
                     "extension" : extension,
                     "md5" : calculate_md5(os.path.join(root, file)),
                     "file_size" : os.path.getsize(os.path.join(root, file))
-                } 
-            folder_data[file] = file_data
+                }
+                folder_data[file] = file_data
+    logger.info(f"=== Found {len(folder_data)} supported files in folder ===")
     return folder_data
 
 async def write_file_to_folder(source_path: str, target_path: str) -> bool:
@@ -122,6 +135,16 @@ async def process_folder(folder_request: FolderProcesserRequest, session = Depen
     # Bulk Screening Logic
     try:
         output_filename = f"bulk_screening_{user_id[:8]}.xlsx"
+
+        # Remove stale file from any previous run
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+            logger.info(f"=== Removed stale output file: {output_filename} ===")
+
+        if not file_to_map:
+            logger.warning("=== No supported files found in the specified folder ===")
+            return JSONResponse(content={"message": "No supported files found in the specified folder."})
+
         await process_resumes_to_excel(job_description, file_to_map, user_id, output_filename)
         
         if os.path.exists(output_filename):
