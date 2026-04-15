@@ -59,7 +59,9 @@ async def process_folder(
     file_to_map = []      # All file names for bulk screening
 
     for uploaded_file in files:
-        file_name = uploaded_file.filename
+        # Strip folder prefix — browsers include it when using directory picker
+        # e.g. "test/resume.pdf" → "resume.pdf"
+        file_name = os.path.basename(uploaded_file.filename)
         
         # Check file extension
         extension = await get_file_extension(file_name)
