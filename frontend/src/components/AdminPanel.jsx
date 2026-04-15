@@ -108,7 +108,7 @@ const AdminPanel = () => {
                         placeholder="Search user by email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ background: 'none', border: 'none', color: 'white', flex: 1, padding: '0.5rem' }}
+                        style={{ background: 'none', border: 'none', color: '#1a1a2e', flex: 1, padding: '0.5rem' }}
                     />
                     <button
                         type="submit"
@@ -224,10 +224,10 @@ const AdminPanel = () => {
                                             style={{
                                                 width: '100%',
                                                 padding: '0.875rem 1rem 0.875rem 3rem',
-                                                background: 'rgba(15, 23, 42, 0.6)',
-                                                border: '1px solid var(--glass-border)',
-                                                borderRadius: '12px',
-                                                color: 'white',
+                                                background: '#f7f8fa',
+                                                border: '1px solid #e2e5ea',
+                                                borderRadius: '8px',
+                                                color: '#1a1a2e',
                                                 appearance: 'none',
                                                 outline: 'none'
                                             }}

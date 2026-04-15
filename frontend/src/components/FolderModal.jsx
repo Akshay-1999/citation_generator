@@ -40,61 +40,52 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal-overlay glass" onClick={handleClose}>
-            <div className="modal-content glass" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>
-                        <Folder size={20} />
+                        <Folder size={18} />
                         Bulk Resume Screening
                     </h3>
                     <button className="close-btn" onClick={handleClose} disabled={isProcessing}>
-                        <X size={20} />
+                        <X size={18} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="modal-body">
-                    {/* Folder / File Picker */}
                     <div className="input-group">
                         <label>Select Resume Folder</label>
                         <div
                             style={{
-                                border: '2px dashed rgba(255,255,255,0.15)',
+                                border: '2px dashed #d1d5db',
                                 borderRadius: '10px',
                                 padding: '24px 16px',
                                 textAlign: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 background: selectedFiles.length > 0 
-                                    ? 'rgba(59,130,246,0.08)' 
-                                    : 'rgba(255,255,255,0.02)',
+                                    ? 'rgba(196, 18, 48, 0.03)' 
+                                    : '#f9fafb',
                             }}
                             onClick={() => document.getElementById('folder-picker').click()}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                const files = Array.from(e.dataTransfer.files).filter(f => 
-                                    f.name.toLowerCase().endsWith('.pdf')
-                                );
-                                setSelectedFiles(files);
-                            }}
                         >
                             {selectedFiles.length === 0 ? (
                                 <>
-                                    <FileUp size={32} style={{ color: '#64748b', marginBottom: '8px' }} />
-                                    <p style={{ color: '#94a3b8', margin: '4px 0 0', fontSize: '14px' }}>
-                                        Click to select a folder or drag & drop PDF files
+                                    <FileUp size={28} style={{ color: '#8a94a6', marginBottom: '6px' }} />
+                                    <p style={{ color: '#4a5568', margin: '4px 0 0', fontSize: '0.88rem' }}>
+                                        Click to select a folder with resume PDFs
                                     </p>
-                                    <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '12px' }}>
+                                    <p style={{ color: '#8a94a6', margin: '4px 0 0', fontSize: '0.75rem' }}>
                                         Only PDF files will be processed
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <FileUp size={32} style={{ color: '#3b82f6', marginBottom: '8px' }} />
-                                    <p style={{ color: '#60a5fa', margin: '4px 0 0', fontSize: '14px', fontWeight: 600 }}>
+                                    <FileUp size={28} style={{ color: '#C41230', marginBottom: '6px' }} />
+                                    <p style={{ color: '#C41230', margin: '4px 0 0', fontSize: '0.88rem', fontWeight: 600 }}>
                                         {selectedFiles.length} PDF file{selectedFiles.length !== 1 ? 's' : ''} selected
                                     </p>
-                                    <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '12px' }}>
+                                    <p style={{ color: '#8a94a6', margin: '4px 0 0', fontSize: '0.75rem' }}>
                                         Click to change selection
                                     </p>
                                 </>
@@ -112,17 +103,16 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                         />
                     </div>
 
-                    {/* Show selected file names */}
                     {selectedFiles.length > 0 && (
                         <div style={{
-                            maxHeight: '120px',
+                            maxHeight: '100px',
                             overflowY: 'auto',
-                            background: 'rgba(0,0,0,0.2)',
+                            background: '#f7f8fa',
                             borderRadius: '8px',
                             padding: '8px 12px',
-                            fontSize: '12px',
-                            color: '#94a3b8',
-                            marginBottom: '8px'
+                            fontSize: '0.75rem',
+                            color: '#4a5568',
+                            border: '1px solid #e2e5ea'
                         }}>
                             {selectedFiles.map((f, i) => (
                                 <div key={i} style={{ 
@@ -131,7 +121,7 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                                     alignItems: 'center', 
                                     gap: '6px' 
                                 }}>
-                                    <FileText size={12} style={{ flexShrink: 0 }} />
+                                    <FileText size={12} style={{ flexShrink: 0, color: '#C41230' }} />
                                     {f.name}
                                 </div>
                             ))}
@@ -163,7 +153,7 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                             {isProcessing ? (
                                 <>
                                     <Loader2 className="animate-spin" size={16} />
-                                    <span>Processing {selectedFiles.length} files...</span>
+                                    <span>Processing...</span>
                                 </>
                             ) : (
                                 `Screen ${selectedFiles.length || ''} Resume${selectedFiles.length !== 1 ? 's' : ''}`

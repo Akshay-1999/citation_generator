@@ -302,8 +302,8 @@ function App() {
 
   if (authStatus === null) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
-        <Loader2 className="animate-spin" color="#3b82f6" size={48} />
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f8fa' }}>
+        <Loader2 className="animate-spin" color="#C41230" size={48} />
       </div>
     );
   }
