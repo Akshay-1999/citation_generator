@@ -100,4 +100,47 @@ The application will be accessible at `http://localhost:5173`.
 - `static/` & `uploaded_files/`: Static assets and processed documents
 
 ## 📄 License
-This project is for training and development purposes.
+This project is for training and development purposes.
+
+## Production Deployment
+
+### 1. Build the Frontend
+```bash
+cd frontend
+npm run build
+```
+
+### 2. Configure Environment Variables
+Create a `.env` file in the root directory and add the following keys. You can use `.env.example` as a template:
+
+```bash
+cp .env.example .env
+```
+
+Fill in the following variables:
+- `db_user`, `db_password`, `db_host`, `db_port`, `db_name` (PostgreSQL credentials)
+- `openai_api_key` (OpenAI API key)
+- `secret_key` (Random string for authentication)
+- `TAVILY_API_KEY` (Tavily search API)
+- `PINECONE_API_KEY` & `PINECONE_INDEX_NAME` (Vector storage)
+- `COHERE_API_KEY` (Reranking/Embeddings)
+- `LANGSMITH_API_KEY` (Optional for tracing)
+
+### 3. Run the Backend Server
+```bash
+gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker -b [IP_ADDRESS]:8000
+```
+The API documentation will be available at `http://[IP_ADDRESS]/docs`.
+
+### read logs
+🛠️ Step 4: Check Status & Logs
+bash
+sudo systemctl status fastapi
+Logs:
+
+bash
+journalctl -u fastapi -f
+
+### stop the server
+bash
+sudo systemctl stop fastapi
