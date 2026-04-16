@@ -66,7 +66,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://citation-generator-teal.vercel.app",
     "http://192.168.0.69:5173",
-    "http://recai.estuate.com/",
+    "http://recai.estuate.com",
 ]
 
 # Add any additional origins from environment variable
