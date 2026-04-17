@@ -132,6 +132,19 @@ gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker -b [IP_ADDRESS]:8000
 ```
 The API documentation will be available at `http://[IP_ADDRESS]/docs`.
 
+
+### deploy
+bash
+./deploy.sh
+
+### start the server
+bash
+sudo systemctl start fastapi
+
+### stop the server
+bash
+sudo systemctl stop fastapi
+
 ### read logs
 🛠️ Step 4: Check Status & Logs
 bash
@@ -140,7 +153,3 @@ Logs:
 
 bash
 journalctl -u fastapi -f
-
-### stop the server
-bash
-sudo systemctl stop fastapi
