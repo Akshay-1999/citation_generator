@@ -66,6 +66,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://citation-generator-teal.vercel.app",
     "http://192.168.0.69:5173",
+    "http://recai.estuate.com",
 ]
 
 # Add any additional origins from environment variable
@@ -109,4 +110,4 @@ app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 # ─── Health Check ───────────────────────────────────────────────────────────
 @app.get("/")
 def root():
-    return {"message": "Backend is running"}
+    return {"message": "Backend is running"}

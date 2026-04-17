@@ -128,6 +128,22 @@ export const api = {
         return handleResponse(res, 'Failed to update password');
     },
 
+    updateRole: async (email, role) => {
+        const res = await fetch(`${BASE_URL}/user/update_role/${encodeURIComponent(email)}?role=${role}`, {
+            method: 'PUT',
+            credentials: 'include',
+        });
+        return handleResponse(res, 'Failed to update role');
+    },
+
+    updateActiveStatus: async (email, isActive) => {
+        const res = await fetch(`${BASE_URL}/user/update_active_status/${encodeURIComponent(email)}?is_active=${isActive}`, {
+            method: 'PUT',
+            credentials: 'include',
+        });
+        return handleResponse(res, 'Failed to update status');
+    },
+
     deleteThread: async (threadId) => {
         const res = await fetch(`${BASE_URL}/chat/delete/${threadId}`, {
             method: 'DELETE',
