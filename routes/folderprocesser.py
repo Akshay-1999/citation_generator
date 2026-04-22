@@ -37,6 +37,8 @@ folder_processer_router = APIRouter()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 UPLOAD_DIR = "uploaded_files"
+REPORTS_DIR = "screening_reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def calculate_md5_bytes(data: bytes) -> str:
     """Calculate MD5 from raw bytes."""
@@ -83,6 +85,23 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
                 os.remove(temp_path)
             except Exception as cleanup_err:
                 logger.error(f"=== Error cleaning up temp JD file: {cleanup_err} ===")
+
+
+@folder_processer_router.get("/download_report/{filename}")
+async def download_report(filename: str, session = Depends(login_required)):
+    """Serve a generated screening report."""
+    if session is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    file_path = os.path.join(REPORTS_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Report not found")
+        
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @folder_processer_router.post("/process_folder")
@@ -199,29 +218,31 @@ async def process_folder(
 
     # Bulk Screening Logic
     try:
-        output_filename = f"bulk_screening_{user_id[:8]}.xlsx"
-        logger.info(f"--- Starting bulk screening. Output: {output_filename} | Resumes: {len(file_to_map)} ---")
-
-        # Remove stale file from any previous run
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-            logger.info(f"=== Removed stale output file: {output_filename} ===")
+        # Use a unique filename for the report to avoid collisions
+        report_id = f"{user_id[:8]}_{uuid.uuid4().hex[:6]}"
+        output_filename = f"screening_{report_id}.xlsx"
+        output_path = os.path.join(REPORTS_DIR, output_filename)
+        
+        logger.info(f"--- Starting bulk screening. Output: {output_path} | Resumes: {len(file_to_map)} ---")
 
         if not file_to_map:
             logger.warning("=== No supported files found in the uploaded files ===")
-            return JSONResponse(content={"message": "No supported files (PDF) found in the uploaded files."})
+            return JSONResponse(content={"message": "No supported files (PDF) found in the uploaded files.", "results": []})
 
         logger.info(f"=== Starting bulk screening for {len(file_to_map)} files ===")
-        await process_resumes_to_excel(job_description, file_to_map, user_id, output_filename)
+        results = await process_resumes_to_excel(job_description, file_to_map, user_id, output_path)
         
-        if os.path.exists(output_filename):
-            return FileResponse(
-                path=output_filename,
-                filename=output_filename,
-                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        if os.path.exists(output_path):
+            return JSONResponse(content={
+                "message": "Screening completed successfully",
+                "results": results,
+                "download_url": f"/folder/download_report/{output_filename}"
+            })
         else:
-            return JSONResponse(content={"message": "Processing completed but no candidates were found/mapped."})
+            return JSONResponse(content={
+                "message": "Processing completed but no results were generated.",
+                "results": results or []
+            })
     except Exception as e:
         logger.error(f"=== Error during bulk screening: {e} ===")
         raise HTTPException(status_code=500, detail=f"Error mapping resumes: {str(e)}")

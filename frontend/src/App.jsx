@@ -6,11 +6,19 @@ import FolderModal from './components/FolderModal';
 import FileSelectionModal from './components/FileSelectionModal';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
-import { api } from './api';
+import ScreeningDashboard from './components/ScreeningDashboard';
+import { api, BASE_URL } from './api';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import './App.css';
 
-function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress }) {
+function Dashboard({ 
+  userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, 
+  onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, 
+  isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, 
+  setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, 
+  handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress,
+  view, setView, screeningResults, handleConvertToEstuate, onViewResults, onDownload
+}) {
   return (
     <div className="app-container">
       <Sidebar
@@ -24,18 +32,28 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         userEmail={userEmail}
         userRole={userRole}
         onLogout={onLogout}
+        onViewResults={onViewResults}
       />
 
-      <ChatArea
-        messages={messages}
-        isTyping={isTyping}
-        onSendMessage={handleSendMessage}
-        onAttachFile={() => document.getElementById('file-input')?.click()}
-        onOpenFolderModal={() => setIsFolderModalOpen(true)}
-        onOpenFileSelection={() => setIsFileSelectionModalOpen(true)}
-        selectedFiles={selectedFiles}
-        onRemoveFile={handleUnselectFile}
-      />
+      {view === 'dashboard' ? (
+        <ScreeningDashboard 
+          results={screeningResults} 
+          onBack={() => setView('chat')}
+          onDownload={onDownload}
+          onConvertToEstuate={handleConvertToEstuate}
+        />
+      ) : (
+        <ChatArea
+          messages={messages}
+          isTyping={isTyping}
+          onSendMessage={handleSendMessage}
+          onAttachFile={() => document.getElementById('file-input')?.click()}
+          onOpenFolderModal={() => setIsFolderModalOpen(true)}
+          onOpenFileSelection={() => setIsFileSelectionModalOpen(true)}
+          selectedFiles={selectedFiles}
+          onRemoveFile={handleUnselectFile}
+        />
+      )}
 
       <FolderModal
         isOpen={isFolderModalOpen}
@@ -127,6 +145,17 @@ function App() {
   const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [view, setView] = useState('chat'); // 'chat' or 'dashboard'
+  const [screeningResults, setScreeningResults] = useState([]);
+  const [downloadReportUrl, setDownloadReportUrl] = useState(null);
+
+  const handleConvertToEstuate = (candidate) => {
+    setUploadProgress({ active: true, message: `Converting ${candidate.name}...`, status: 'uploading' });
+    setTimeout(() => {
+      setUploadProgress({ active: true, message: 'Conversion Complete', status: 'success' });
+      setTimeout(() => setUploadProgress({ active: false, message: '', status: 'uploading' }), 2000);
+    }, 1500);
+  };
   const [isTyping, setIsTyping] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isFileSelectionModalOpen, setIsFileSelectionModalOpen] = useState(false);
@@ -250,24 +279,20 @@ function App() {
   const handleProcessFolder = async (files, jd, jdFile) => {
     setUploadProgress({ active: true, message: `Uploading ${files.length} resumes...`, status: 'uploading' });
     try {
-      const res = await api.processFolder(files, jd, jdFile);
-
-      if (res.headers.get('content-type')?.includes('spreadsheetml')) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'screening_results.xlsx';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      const data = await api.processFolder(files, jd, jdFile);
+      
+      if (data.results && data.results.length > 0) {
+        setScreeningResults(data.results);
+        setDownloadReportUrl(data.download_url);
         
         setUploadProgress({ active: true, message: 'Screening Complete', status: 'success' });
-        await new Promise(r => setTimeout(r, 2500));
+        
+        setTimeout(() => {
+          setUploadProgress({ active: false, message: '', status: 'uploading' });
+          setView('dashboard');
+        }, 1500);
       } else {
-        const data = await res.json();
-        setUploadProgress({ active: true, message: data.message || 'Processing Complete', status: 'success' });
+        setUploadProgress({ active: true, message: data.message || 'Processing Complete (No results)', status: 'success' });
         await new Promise(r => setTimeout(r, 2500));
       }
     } catch (err) {
@@ -374,6 +399,25 @@ function App() {
               onLogout={handleLogout}
               uploadProgress={uploadProgress}
               setUploadProgress={setUploadProgress}
+              view={view}
+              setView={setView}
+              screeningResults={screeningResults}
+              handleConvertToEstuate={handleConvertToEstuate}
+              onDownload={() => {
+                if (downloadReportUrl) {
+                  const fullUrl = `${BASE_URL}${downloadReportUrl}`;
+                  const link = document.createElement('a');
+                  link.href = fullUrl;
+                  link.setAttribute('download', '');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }
+              }}
+              onViewResults={() => {
+                // If there are no results, we still show the dashboard (empty or mock if we wanted for testing)
+                setView('dashboard');
+              }}
             />
           ) : <Navigate to="/login" replace />
         } />
