@@ -41,3 +41,4 @@ uploaded_files/
 # Logs
 logs/
 *.log
+*.xlsx
