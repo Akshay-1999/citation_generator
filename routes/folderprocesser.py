@@ -22,8 +22,7 @@ import os
 import sys
 import platform
 
-from utils.logging_utils import set_system_logger
-logger = set_system_logger("folder_processer", log_file="logs/folder_processing.log")
+from utils.logger_instances import folder_processer_logger as logger
 
 # 🚀 DEBUG: Environment Info
 logger.info(f"--- ENVIRONMENT TRACE ---")

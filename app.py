@@ -23,8 +23,7 @@ class customMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # 🚀 TRACE: Log every request early
-        from utils.logging_utils import set_system_logger
-        logger = set_system_logger("request_logger", log_file="logs/requests.log")
+        from utils.logger_instances import request_logger as logger
         
         content_length = request.headers.get("content-length", "unknown")
         logger.info(f"== Incoming Request: {request.method} {request.url} | Size: {content_length} bytes ==")
@@ -54,8 +53,7 @@ class customMiddleware(BaseHTTPMiddleware):
         token_data = request.cookies.get("auth_token")
         
         # 🐛 DEBUG: Log incoming cookies for troubleshooting
-        from utils.logging_utils import set_system_logger
-        debug_logger = set_system_logger("system_logger")
+        from utils.logger_instances import system_logger as debug_logger
         # Only log cookie names to protect privacy while debugging
         cookie_names = list(request.cookies.keys())
         debug_logger.info(f"--- Request Context: Cookies found: {cookie_names} ---")
@@ -89,8 +87,7 @@ if extra_origins:
     ALLOWED_ORIGINS.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
 
 # 🐛 DEBUG: Log allowed origins at startup
-from utils.logging_utils import set_system_logger
-startup_logger = set_system_logger("system_logger")
+from utils.logger_instances import system_logger as startup_logger
 startup_logger.info(f"--- CORS Allowed Origins: {ALLOWED_ORIGINS} ---")
 
 # 1️⃣ Custom middleware FIRST (inner)

@@ -7,7 +7,7 @@ import uuid
 from db.config import Database
 from dotenv import load_dotenv
 from agents.agents_main import ResumeMappingAgent
-from routes.folderprocesser import logger
+from utils.logger_instances import folder_processer_logger as logger
 
 load_dotenv()
 
