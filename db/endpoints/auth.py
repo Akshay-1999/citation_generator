@@ -1,10 +1,8 @@
 from db.config import Database
 import uu
 import asyncio
-from utils.logging_utils import set_system_logger
-from pydantic import BaseModel , EmailStr 
-
-logger = set_system_logger("system_logger")
+from utils.logger_instances import auth_logger as logger
+from pydantic import EmailStr 
 
 
 async def authenticate_user(email: EmailStr, password: str):

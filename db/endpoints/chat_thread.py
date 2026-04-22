@@ -1,11 +1,9 @@
 from db.config import Database
-from utils.logging_utils import set_system_logger    
+from utils.logger_instances import chat_logger as logger
 import uuid
 import datetime
 import json
 from typing import List, Optional
-
-logger = set_system_logger("system_logger")
 
 async def create_chat_thread(user_id: str , thread_title : str = None):
     """

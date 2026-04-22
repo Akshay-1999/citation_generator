@@ -1,13 +1,12 @@
 import shutil
 from fastapi import APIRouter, HTTPException , UploadFile , Depends , Request , File
 from routes.auth import login_required
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import file_logger as logger
 from embedding.pinecone_index import delete_pinecone_index
 import os
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from hashlib import md5
-logger = set_system_logger("system_logger")
 
 
 file_router = APIRouter()

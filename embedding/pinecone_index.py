@@ -2,12 +2,10 @@ import os
 import asyncio
 from pinecone import Pinecone, ServerlessSpec
 from pinecone.grpc import PineconeGRPC as Pinecone
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import file_logger as logger
 from dotenv import load_dotenv
 
 load_dotenv()
-
-logger = set_system_logger("system_logger")
 
 pc = None
 _pinecone_index = None

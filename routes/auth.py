@@ -6,10 +6,7 @@ from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 import os
 from db.endpoints.auth import authenticate_user
-from utils.logging_utils import set_system_logger
-
-
-logger = set_system_logger("system_logger")
+from utils.logger_instances import auth_logger as logger
 
 load_dotenv()
 secret_key = os.getenv("secret_key")
