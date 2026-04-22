@@ -18,7 +18,8 @@ from agents.agents_main import ResumeMappingAgent
 from routes.endpoint.bulk_processing import process_resumes_to_excel
 from document_processing.document_loader import MemoryEfficientFileloader
 
-logger = set_system_logger("system_logger")
+from utils.logging_utils import set_system_logger
+logger = set_system_logger("folder_processer", log_file="logs/folder_processing.log")
 folder_processer_router = APIRouter()
 
 # Resolve project root (two levels up from this file: routes/ -> project_root/)
@@ -102,14 +103,14 @@ async def process_folder(
         raise HTTPException(status_code=400, detail="No Job Description provided")
 
     if jd_file:
+        logger.info(f"--- JD File detected: {jd_file.filename}. Attempting extraction... ---")
         job_description = await extract_text_from_upload(jd_file, user_id)
-        logger.info(f"=== Extracted JD text: {job_description[:100]} ===")
         if not job_description:
-             logger.warning(f"=== Failed to extract text from JD file: {jd_file.filename} ===")
+             logger.error(f"!!! CRITICAL: Failed to extract text from JD file: {jd_file.filename} !!!")
         else:
-            logger.info(f"=== Successfully extracted text from JD file: {jd_file.filename} ===")
+            logger.info(f"--- Successfully extracted {len(job_description)} chars from JD file ---")
     else:
-        logger.info(f"=== Using JD from form data: {job_description} ===")
+        logger.info(f"--- Using pasted JD text ({len(job_description)} chars) ---")
         job_description = job_description.strip()
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -140,8 +141,9 @@ async def process_folder(
         
         if file_exists:
             old_file_name, old_md5, old_file_path, old_file_id = file_exists
+            logger.debug(f"--- File '{file_name}' exists in DB. MD5 Check: New={md5}, Old={old_md5} ---")
             if old_md5 == md5:
-                logger.info(f"--- File unchanged, skipping: {file_name} ---")
+                logger.info(f"--- File unchanged: {file_name} (skipped) ---")
                 continue
             
             # File changed — delete old vectors and re-process
@@ -175,16 +177,19 @@ async def process_folder(
     # Embed new/changed files
     try:
         if file_to_process:
-            logger.info(f"=== Starting embedding process for {len(file_to_process)} files ===")
+            logger.info(f"=== Attempting embedding for {len(file_to_process)} files: {file_to_process} ===")
             await store_embeddings(specific_files=file_to_process, user_id=user_id, processing_mode="pymupdf4llm")
-            logger.info(f"=== Embedding process completed for {len(file_to_process)} files ===")
+            logger.info(f"=== Embedding SUCCESS for {len(file_to_process)} files ===")
+        else:
+            logger.info("--- No new/changed files to embed ---")
     except Exception as e:
-        logger.error(f"=== Error during embedding process: {e} ===")
+        logger.error(f"!!! Error during embedding process: {e} !!!", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error embedding files: {str(e)}")
 
     # Bulk Screening Logic
     try:
         output_filename = f"bulk_screening_{user_id[:8]}.xlsx"
+        logger.info(f"--- Starting bulk screening. Output: {output_filename} | Resumes: {len(file_to_map)} ---")
 
         # Remove stale file from any previous run
         if os.path.exists(output_filename):

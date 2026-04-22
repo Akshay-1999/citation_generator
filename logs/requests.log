@@ -1,0 +1,14 @@
+2026-04-22 12:08:51,249 - request_logger - INFO - == Incoming Request: GET http://localhost:8000/user/session | Size: unknown bytes ==
+2026-04-22 12:08:51,260 - request_logger - INFO - <= Response: 200 | Time: 0.007s <=
+2026-04-22 12:08:59,224 - request_logger - INFO - == Incoming Request: GET http://localhost:8000/user/session | Size: unknown bytes ==
+2026-04-22 12:08:59,226 - request_logger - INFO - == Incoming Request: GET http://localhost:8000/chat/threads | Size: unknown bytes ==
+2026-04-22 12:08:59,229 - request_logger - INFO - <= Response: 200 | Time: 0.005s <=
+2026-04-22 12:08:59,522 - request_logger - INFO - <= Response: 200 | Time: 0.295s <=
+2026-04-22 12:08:59,533 - request_logger - INFO - == Incoming Request: GET http://localhost:8000/chat/threads | Size: unknown bytes ==
+2026-04-22 12:08:59,538 - request_logger - INFO - <= Response: 200 | Time: 0.004s <=
+2026-04-22 12:09:26,684 - request_logger - INFO - == Incoming Request: POST http://localhost:8000/folder/process_folder | Size: 1876677 bytes ==
+2026-04-22 12:10:18,752 - request_logger - INFO - <= Response: 200 | Time: 52.068s <=
+2026-04-22 12:10:54,803 - request_logger - INFO - == Incoming Request: POST http://localhost:8000/chat/query | Size: 78 bytes ==
+2026-04-22 12:10:56,716 - request_logger - INFO - <= Response: 200 | Time: 1.912s <=
+2026-04-22 12:10:56,729 - request_logger - INFO - == Incoming Request: GET http://localhost:8000/chat/threads | Size: unknown bytes ==
+2026-04-22 12:10:56,738 - request_logger - INFO - <= Response: 200 | Time: 0.008s <=
