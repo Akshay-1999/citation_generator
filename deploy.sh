@@ -23,7 +23,12 @@ echo "Deploying frontend to /var/www/frontend..."
 sudo rm -rf /var/www/frontend/*
 sudo cp -r dist/* /var/www/frontend/
 
-# 5. Reload Nginx
+# 5. Update Nginx configuration
+echo "Updating Nginx configuration from project..."
+sudo cp ~/myapp/citation_generator/nginx/recai.estuate.com.conf /etc/nginx/sites-available/recai.estuate.com
+sudo ln -sf /etc/nginx/sites-available/recai.estuate.com /etc/nginx/sites-enabled/recai.estuate.com
+
+# 6. Reload Nginx
 echo "Restarting Nginx..."
 sudo nginx -t
 sudo systemctl restart nginx
