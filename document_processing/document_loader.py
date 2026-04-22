@@ -230,10 +230,15 @@ class MemoryEfficientFileloader:
         try:
             file_name = Path(file_path).name
             suffix = Path(file_name).suffix 
+            
+            # Use system temp directory for better reliability in production
+            import tempfile
+            temp_dir = os.path.join(tempfile.gettempdir(), "temp_processing_files")
+            os.makedirs(temp_dir, exist_ok=True)
+            
             with open(file_path, "rb") as f:
                 data = f.read()
-            temp_dir = os.path.join(os.getcwd(), "temp_processing_files")
-            os.makedirs(temp_dir, exist_ok=True)
+            
             with tempfile.NamedTemporaryFile(
                         mode='wb',
                         delete=False,

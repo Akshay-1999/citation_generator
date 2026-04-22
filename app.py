@@ -18,19 +18,31 @@ class customMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next):
-
         # ✅ IMPORTANT: Skip OPTIONS requests (preflight)
         if request.method == "OPTIONS":
             return await call_next(request)
 
+        # 🚀 TRACE: Log every request early
+        from utils.logging_utils import set_system_logger
+        logger = set_system_logger("request_logger", log_file="logs/requests.log")
+        
+        content_length = request.headers.get("content-length", "unknown")
+        logger.info(f"== Incoming Request: {request.method} {request.url} | Size: {content_length} bytes ==")
+
         await self.add_request_context(request)
 
         start_time = getattr(request.state, "start_time", datetime.now())
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(f"!! CRITICAL: Unhandled middleware exception: {e} !!", exc_info=True)
+            return JSONResponse(status_code=500, content={"detail": f"Internal server error: {str(e)}"})
 
         end_time = datetime.now()
         execution_time = end_time - start_time
         response.headers["X-Execution-Time"] = str(execution_time.total_seconds())
+        
+        logger.info(f"<= Response: {response.status_code} | Time: {execution_time.total_seconds():.3f}s <=")
 
         return response
 
@@ -44,7 +56,9 @@ class customMiddleware(BaseHTTPMiddleware):
         # 🐛 DEBUG: Log incoming cookies for troubleshooting
         from utils.logging_utils import set_system_logger
         debug_logger = set_system_logger("system_logger")
-        debug_logger.info(f"--- Incoming Cookies: {list(request.cookies.keys())} ---")
+        # Only log cookie names to protect privacy while debugging
+        cookie_names = list(request.cookies.keys())
+        debug_logger.info(f"--- Request Context: Cookies found: {cookie_names} ---")
 
         if token_data:
             from utils.auth_utils import auth_manger
