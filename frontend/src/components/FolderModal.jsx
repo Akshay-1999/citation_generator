@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Folder, FileText, Loader2, FileUp } from 'lucide-react';
+import { X, Folder, FileText, Loader2, FileUp, Paperclip } from 'lucide-react';
 
 const FolderModal = ({ isOpen, onClose, onProcess }) => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [jd, setJd] = useState('');
+    const [jdFile, setJdFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleFolderSelect = (e) => {
@@ -13,15 +14,23 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
         setSelectedFiles(files);
     };
 
+    const handleJdFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setJdFile(file);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (selectedFiles.length === 0 || !jd) return;
+        if (selectedFiles.length === 0 || (!jd && !jdFile)) return;
 
         setIsProcessing(true);
         try {
-            await onProcess(selectedFiles, jd);
+            await onProcess(selectedFiles, jd, jdFile);
             setSelectedFiles([]);
             setJd('');
+            setJdFile(null);
             onClose();
         } catch (err) {
             console.error(err);
@@ -129,16 +138,68 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                     )}
 
                     <div className="input-group">
-                        <label>Job Description</label>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                            <label style={{ margin: 0 }}>Job Description</label>
+                            <button
+                                type="button"
+                                className="browse-btn"
+                                onClick={() => document.getElementById('jd-file-picker').click()}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                <Paperclip size={14} />
+                                {jdFile ? 'Change JD File' : 'Attach JD File'}
+                            </button>
+                        </div>
+                        
+                        <input
+                            type="file"
+                            id="jd-file-picker"
+                            hidden
+                            onChange={handleJdFileChange}
+                            accept=".pdf,.doc,.docx,.txt"
+                        />
+
+                        {jdFile && (
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                margin: '0 0 10px 0',
+                                padding: '8px 12px',
+                                background: 'rgba(196, 18, 48, 0.04)',
+                                border: '1px solid rgba(196, 18, 48, 0.15)',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                                color: '#C41230'
+                            }}>
+                                <FileText size={14} />
+                                <span style={{ flex: 1, fontWeight: 500 }}>{jdFile.name}</span>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setJdFile(null)}
+                                    style={{ color: '#8a94a6', '&:hover': { color: '#dc2626' } }}
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+
                         <div className="textarea-with-icon">
                             <FileText className="input-icon" size={16} />
                             <textarea
                                 value={jd}
                                 onChange={(e) => setJd(e.target.value)}
                                 placeholder="Paste the JD details here for matching..."
-                                required
+                                required={!jdFile}
+                                disabled={!!jdFile}
+                                style={{ opacity: jdFile ? 0.6 : 1 }}
                             />
                         </div>
+                        {jdFile && (
+                            <p style={{ fontSize: '0.75rem', color: '#8a94a6', marginTop: '4px', fontStyle: 'italic' }}>
+                                Using attached JD file instead of text area.
+                            </p>
+                        )}
                     </div>
 
                     <div className="modal-footer">
@@ -148,7 +209,7 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                         <button
                             className="process-btn"
                             type="submit"
-                            disabled={isProcessing || selectedFiles.length === 0 || !jd}
+                            disabled={isProcessing || selectedFiles.length === 0 || (!jd && !jdFile)}
                         >
                             {isProcessing ? (
                                 <>

@@ -226,9 +226,9 @@ function App() {
     }
   };
 
-  const handleProcessFolder = async (files, jd) => {
+  const handleProcessFolder = async (files, jd, jdFile) => {
     try {
-      const res = await api.processFolder(files, jd);
+      const res = await api.processFolder(files, jd, jdFile);
 
       if (res.headers.get('content-type')?.includes('spreadsheetml')) {
         const blob = await res.blob();

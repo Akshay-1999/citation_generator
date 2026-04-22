@@ -1,12 +1,13 @@
-import hashlib
-import os
 import shutil
+import tempfile
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import uuid
+import os
+import hashlib
 
 from routes.auth import login_required
 from utils.logging_utils import set_system_logger
@@ -15,6 +16,7 @@ from embedding.embedder import store_embeddings
 from embedding.pinecone_index import delete_pinecone_index
 from agents.agents_main import ResumeMappingAgent
 from routes.endpoint.bulk_processing import process_resumes_to_excel
+from document_processing.document_loader import MemoryEfficientFileloader
 
 logger = set_system_logger("system_logger")
 folder_processer_router = APIRouter()
@@ -28,12 +30,50 @@ def calculate_md5_bytes(data: bytes) -> str:
     """Calculate MD5 from raw bytes."""
     return hashlib.md5(data).hexdigest()
 
+async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str:
+    """Save UploadFile to temp and extract text using the document loader."""
+    content = await upload_file.read()
+    if not content:
+        return ""
+    
+    # Reset file pointer for any subsequent reads
+    await upload_file.seek(0)
+    
+    suffix = Path(upload_file.filename).suffix.lower()
+    temp_dir = os.path.join(os.getcwd(), "temp_jd_processing")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=temp_dir, suffix=suffix) as tmp:
+            temp_path = tmp.name
+            tmp.write(content)
+        
+        logger.info(f"--- Extracting JD text from temp file: {temp_path} ---")
+        loader = MemoryEfficientFileloader(user_id=user_id)
+        extracted_text = ""
+        async for doc in loader._process_file(temp_path, user_id=user_id, file_name=upload_file.filename):
+            if doc.page_content:
+                extracted_text += doc.page_content + "\n\n"
+        
+        return extracted_text.strip()
+    except Exception as e:
+        logger.error(f"=== Error extracting JD text: {e} ===")
+        return ""
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as cleanup_err:
+                logger.error(f"=== Error cleaning up temp JD file: {cleanup_err} ===")
+
 
 @folder_processer_router.post("/process_folder")
 async def process_folder(
     job_description: str = Form(...),
     files: List[UploadFile] = File(...),
-    session = Depends(login_required)
+    session = Depends(login_required),
+    jd_file: Optional[UploadFile] = File(None)
 ):
     """
     Receive uploaded resume files + JD from the browser.
@@ -52,6 +92,20 @@ async def process_folder(
 
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
+
+    if not job_description and not jd_file:
+        raise HTTPException(status_code=400, detail="No Job Description provided")
+
+    if jd_file:
+        job_description = await extract_text_from_upload(jd_file, user_id)
+        logger.info(f"=== Extracted JD text: {job_description[:100]} ===")
+        if not job_description:
+             logger.warning(f"=== Failed to extract text from JD file: {jd_file.filename} ===")
+        else:
+            logger.info(f"=== Successfully extracted text from JD file: {jd_file.filename} ===")
+    else:
+        logger.info(f"=== Using JD from form data: {job_description} ===")
+        job_description = job_description.strip()
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
