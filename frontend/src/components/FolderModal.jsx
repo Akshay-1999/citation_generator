@@ -61,7 +61,16 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="modal-body">
+                <form onSubmit={handleSubmit} className="modal-body" style={{ position: 'relative' }}>
+                    {isProcessing && (
+                        <div className="buffering-overlay">
+                            <Loader2 className="animate-spin" size={40} color="#C41230" />
+                            <div className="processing-text">Processing Resumes...</div>
+                            <p style={{ fontSize: '0.8rem', color: '#8a94a6' }}>
+                                This may take a minute depending on the number of files.
+                            </p>
+                        </div>
+                    )}
                     <div className="input-group">
                         <label>Select Resume Folder</label>
                         <div

@@ -1,13 +1,10 @@
 from db.config import Database
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import file_logger as logger
 from pathlib import Path
 import uuid
-from typing import List
-from typing import Dict , Any , List
+from typing import List, Dict, Any
 from fastapi import HTTPException
 import os
-
-logger = set_system_logger("system_logger")
 
 async def get_file_extension(file_name : str)-> str:
     allowed_format = ['.pdf']

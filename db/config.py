@@ -5,9 +5,7 @@ import asyncpg
 import json
 import asyncio
 import ssl
-from utils.logging_utils import set_system_logger
-
-logger = set_system_logger("system_logger")
+from utils.logger_instances import db_logger as logger
 
 
 load_dotenv()

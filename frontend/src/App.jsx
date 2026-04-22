@@ -7,10 +7,10 @@ import FileSelectionModal from './components/FileSelectionModal';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import { api } from './api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import './App.css';
 
-function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, handleRemoveFile, handleProcessFolder, onLogout }) {
+function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress }) {
   return (
     <div className="app-container">
       <Sidebar
@@ -58,23 +58,43 @@ function Dashboard({ userName, userEmail, userRole, threads, activeThreadId, onN
         onChange={async (e) => {
           const file = e.target.files[0];
           if (file) {
+            setUploadProgress({ active: true, message: `Uploading ${file.name}...`, status: 'uploading' });
             try {
               const result = await api.uploadFile(file);
-              // Auto-select the uploaded file
               if (result && result.file_id) {
-                const fileInfo = {
+                handleFileSelect({
                   file_id: result.file_id,
                   filename: result.filename || file.name
-                };
-                handleFileSelect(fileInfo);
+                });
+                setUploadProgress({ active: true, message: 'Upload Complete', status: 'success' });
+                await new Promise(r => setTimeout(r, 2000));
               }
-              alert('File uploaded successfully!');
             } catch (err) {
               alert('Upload failed: ' + err.message);
+            } finally {
+              setUploadProgress({ active: false, message: '', status: 'uploading' });
+              e.target.value = '';
             }
           }
         }}
       />
+      {uploadProgress.active && (
+        <div className={`upload-overlay ${uploadProgress.status}`}>
+          <div className="icon-container">
+            {uploadProgress.status === 'success' ? (
+              <CheckCircle2 size={24} />
+            ) : (
+              <Loader2 className="animate-spin" size={20} />
+            )}
+          </div>
+          <div className="text-container">
+            <h2>{uploadProgress.message}</h2>
+            {uploadProgress.status === 'uploading' && (
+              <p className="status-text">Processing documents...</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,6 +131,7 @@ function App() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isFileSelectionModalOpen, setIsFileSelectionModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState({ active: false, message: '', status: 'uploading' });
 
   // Load persisted files when user is authenticated
   useEffect(() => {
@@ -227,6 +248,7 @@ function App() {
   };
 
   const handleProcessFolder = async (files, jd, jdFile) => {
+    setUploadProgress({ active: true, message: `Uploading ${files.length} resumes...`, status: 'uploading' });
     try {
       const res = await api.processFolder(files, jd, jdFile);
 
@@ -240,12 +262,18 @@ function App() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        
+        setUploadProgress({ active: true, message: 'Screening Complete', status: 'success' });
+        await new Promise(r => setTimeout(r, 2500));
       } else {
         const data = await res.json();
-        alert(data.message || 'Processing completed.');
+        setUploadProgress({ active: true, message: data.message || 'Processing Complete', status: 'success' });
+        await new Promise(r => setTimeout(r, 2500));
       }
     } catch (err) {
       alert(`Error processing: ${err.message}`);
+    } finally {
+      setUploadProgress({ active: false, message: '', status: 'uploading' });
     }
   };
 
@@ -344,6 +372,8 @@ function App() {
               handleRemoveFile={handleRemoveFile}
               handleProcessFolder={handleProcessFolder}
               onLogout={handleLogout}
+              uploadProgress={uploadProgress}
+              setUploadProgress={setUploadProgress}
             />
           ) : <Navigate to="/login" replace />
         } />

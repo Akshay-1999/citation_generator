@@ -7,14 +7,12 @@ from dotenv import load_dotenv
 import os   
 load_dotenv()   
 from routes.auth import login_required
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import chat_logger as logger
 from pydantic import BaseModel
 from typing import List , Dict , Any , Optional
 
 import uuid
 import datetime
-
-logger = set_system_logger("system_logger")
 chat_router = APIRouter()
 
 class ChatRequest(BaseModel):

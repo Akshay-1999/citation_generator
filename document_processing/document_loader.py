@@ -11,15 +11,13 @@ import fitz
 import tempfile
 import os
 import datetime
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import file_logger as logger
 from document_processing.document_chunking import split_pdf_create_chunk
 from typing import Optional , AsyncIterator ,List
 
 from document_processing.data_extraction import extract_with_pymupdf
 import uuid
 from routes.endpoint.filesendpoint import get_document_id , add_chunks_data
-
-logger = set_system_logger("system_logger")
 
 
 
