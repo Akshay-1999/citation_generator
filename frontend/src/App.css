@@ -1216,3 +1216,250 @@ h1, h2, h3, h4 {
 .user-text {
   white-space: pre-wrap;
 }
+
+/* ═══════════════════════════════════════════
+   SCREENING DASHBOARD
+   ═══════════════════════════════════════════ */
+.screening-dashboard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  height: 100vh;
+  width: 100%;
+}
+
+.dashboard-header {
+  height: 72px;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.header-title h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.header-title p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.title-icon {
+  color: var(--brand-primary);
+}
+
+.dashboard-content {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  overflow: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.screening-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.screening-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-secondary);
+}
+
+.screening-table th {
+  padding: 1rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.candidate-row {
+  transition: var(--transition);
+}
+
+.candidate-row:hover {
+  background: rgba(247, 248, 250, 0.7);
+}
+
+.screening-table td {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--bg-accent);
+  vertical-align: top;
+  font-size: 0.88rem;
+}
+
+.candidate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.candidate-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.contact-links span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.last-company {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--brand-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.4rem 0.85rem;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.confidence-badge.high { background: rgba(22, 163, 74, 0.1); color: var(--success); }
+.confidence-badge.medium { background: rgba(217, 119, 6, 0.1); color: var(--warning); }
+.confidence-badge.low { background: rgba(220, 38, 38, 0.1); color: var(--error); }
+
+.exp-stability {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comparison {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stability-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skills-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 300px;
+}
+
+.skill-tag {
+  background: var(--bg-accent);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+.more-skills {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.gaps-risks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 300px;
+}
+
+.risk-item, .risk-jd-item {
+  display: flex;
+  gap: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.risk-icon { flex-shrink: 0; margin-top: 2px; }
+.risk-item { color: #854d0e; }
+.risk-jd-item { color: var(--brand-primary); }
+
+.convert-btn {
+  padding: 0.6rem 1rem;
+  background: white;
+  border: 1px solid var(--brand-primary);
+  color: var(--brand-primary);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.convert-btn:hover {
+  background: var(--brand-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(196, 18, 48, 0.2);
+}
+
+.download-report-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.6rem 1.25rem;
+}

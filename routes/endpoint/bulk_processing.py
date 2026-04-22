@@ -77,7 +77,7 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
 
     if not file_names:
         logger.warning("--- WARNING: No file names provided for bulk processing ---")
-        return
+        return []
     
     for file_name in file_names:
         logger.info(f"[Processing]: {file_name}...")
@@ -132,5 +132,7 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
         
         # Save to Database
         await save_results_to_db(all_results, user_id)
+        return all_results
     else:
         logger.warning("--- No results to save ---")
+        return []

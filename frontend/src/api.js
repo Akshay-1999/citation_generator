@@ -95,7 +95,6 @@ export const api = {
             credentials: 'include',
             body: formData,
         });
-        if (res.ok) return res;
         return handleResponse(res, 'Processing failed');
     },
 
