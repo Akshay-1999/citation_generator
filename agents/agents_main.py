@@ -17,7 +17,7 @@ from agents.agents_tool import get_tool_definitions , get_resume_mapping_tools
 from agents.agent_utils import get_combined_system_prompt , extract_llm_suggested_chunks , verify_llm_chunks
 from utils.logging_utils import set_system_logger
 
-logger = set_system_logger("system_logger")
+logger = set_system_logger("system_logger", log_file="logs/folder_processing.log")
 
 class RAGAgent:
 

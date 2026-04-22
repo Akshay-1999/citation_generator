@@ -7,12 +7,13 @@ import uuid
 from db.config import Database
 from dotenv import load_dotenv
 from agents.agents_main import ResumeMappingAgent
+from routes.folderprocesser import logger
 
 load_dotenv()
 
 async def save_results_to_db(results: list, user_id: str):
     """Save screening results to the core.bulk_screening_results table."""
-    print(f"--- Saving {len(results)} results to database ---")
+    logger.info(f"--- Saving {len(results)} results to database ---")
     pool = await Database.get_pool()
     async with pool.acquire() as conn:
         try:
@@ -55,10 +56,10 @@ async def save_results_to_db(results: list, user_id: str):
             
             # Execute bulk insertion
             await conn.executemany(query, insert_data)
-            print("--- Database insertion completed successfully ---")
+            logger.info("--- Database insertion completed successfully ---")
             
         except Exception as e:
-            print(f"--- Error inserting results to database: {e} ---")
+            logger.error(f"--- Error inserting results to database: {e} ---")
 
 
 async def process_resumes_to_excel(job_description: str, file_names: list, user_id: str, output_file: str):
@@ -72,14 +73,14 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
     
     all_results = []
     
-    print(f"--- Starting Bulk Processing for {len(file_names)} resumes ---")
+    logger.info(f"--- Starting Bulk Processing for {len(file_names)} resumes ---")
 
     if not file_names:
-        print("--- WARNING: No file names provided for bulk processing ---")
+        logger.warning("--- WARNING: No file names provided for bulk processing ---")
         return
     
     for file_name in file_names:
-        print(f"\n[Processing]: {file_name}...")
+        logger.info(f"[Processing]: {file_name}...")
         try:
             # We pass a list with a single file name to process specifically
             response, matches, source = await agent.process_resume_mapping(
@@ -93,15 +94,15 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
                 # Add the filename to the dict for reference in Excel
                 response["original_file"] = file_name
                 all_results.append(response)
-                print(f"Successfully screened {response.get('name', 'Unknown')}")
+                logger.info(f"Successfully screened {response.get('name', 'Unknown')}")
             elif isinstance(response, list):
                 # If it returned a list (unlikely since we gave 1 file, but possible)
                 for item in response:
                     item["original_file"] = file_name
                     all_results.append(item)
-                print(f"Successfully screened {len(response)} candidates from {file_name}")
+                logger.info(f"Successfully screened {len(response)} candidates from {file_name}")
             else:
-                print(f"Warning: Could not parse result for {file_name}. Raw output: {str(response)[:100]}...")
+                logger.warning(f"Could not parse result for {file_name}. Raw output: {str(response)[:100]}...")
                 all_results.append({
                     "original_file": file_name,
                     "error": "Parsing failed",
@@ -109,7 +110,7 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
                 })
                 
         except Exception as e:
-            print(f"Error processing {file_name}: {e}")
+            logger.error(f"Error processing {file_name}: {e}", exc_info=True)
             all_results.append({
                 "original_file": file_name,
                 "error": str(e)
@@ -127,10 +128,9 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
         df = df[existing_preferred + remaining]
         
         df.to_excel(output_file, index=False)
-        print(f"\n--- SUCCESS: Results saved to {output_file} ---")
-        print(df[["name", "confidence_score", "experience_comparison"]].to_string())
+        logger.info(f"--- SUCCESS: Results saved to {output_file} ---")
         
         # Save to Database
         await save_results_to_db(all_results, user_id)
     else:
-        print("\n--- No results to save ---")
+        logger.warning("--- No results to save ---")

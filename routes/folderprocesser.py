@@ -18,8 +18,20 @@ from agents.agents_main import ResumeMappingAgent
 from routes.endpoint.bulk_processing import process_resumes_to_excel
 from document_processing.document_loader import MemoryEfficientFileloader
 
+import os
+import sys
+import platform
+
 from utils.logging_utils import set_system_logger
 logger = set_system_logger("folder_processer", log_file="logs/folder_processing.log")
+
+# 🚀 DEBUG: Environment Info
+logger.info(f"--- ENVIRONMENT TRACE ---")
+logger.info(f"OS: {os.name} | Platform: {platform.system()} | Release: {platform.release()}")
+logger.info(f"PWD: {os.getcwd()}")
+logger.info(f"Python Version: {sys.version}")
+logger.info(f"-------------------------")
+
 folder_processer_router = APIRouter()
 
 # Resolve project root (two levels up from this file: routes/ -> project_root/)
