@@ -81,9 +81,12 @@ export const api = {
         return handleResponse(res, 'Failed to delete file');
     },
 
-    processFolder: async (files, jd) => {
+    processFolder: async (files, jd, jdFile) => {
         const formData = new FormData();
         formData.append('job_description', jd);
+        if (jdFile) {
+            formData.append('jd_file', jdFile);
+        }
         for (const file of files) {
             formData.append('files', file);
         }

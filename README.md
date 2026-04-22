@@ -135,6 +135,7 @@ The API documentation will be available at `http://[IP_ADDRESS]/docs`.
 
 ### deploy
 bash
+chmod +x deploy.sh
 ./deploy.sh
 
 ### start the server
