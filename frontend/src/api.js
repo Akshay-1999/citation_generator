@@ -95,8 +95,8 @@ export const api = {
             credentials: 'include',
             body: formData,
         });
-        if (!res.ok) throw new Error('Processing failed');
-        return res;
+        if (res.ok) return res;
+        return handleResponse(res, 'Processing failed');
     },
 
     // Admin / User Management

@@ -40,11 +40,13 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
     await upload_file.seek(0)
     
     suffix = Path(upload_file.filename).suffix.lower()
-    temp_dir = os.path.join(os.getcwd(), "temp_jd_processing")
-    os.makedirs(temp_dir, exist_ok=True)
-    
     temp_path = None
     try:
+        # Use system temp directory for better reliability in production
+        import tempfile
+        temp_dir = os.path.join(tempfile.gettempdir(), "temp_jd_processing")
+        os.makedirs(temp_dir, exist_ok=True)
+        
         with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=temp_dir, suffix=suffix) as tmp:
             temp_path = tmp.name
             tmp.write(content)
@@ -56,9 +58,12 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
             if doc.page_content:
                 extracted_text += doc.page_content + "\n\n"
         
+        if not extracted_text.strip():
+             logger.warning(f"--- No text extracted from JD file: {upload_file.filename} ---")
+             
         return extracted_text.strip()
     except Exception as e:
-        logger.error(f"=== Error extracting JD text: {e} ===")
+        logger.error(f"=== Error extracting JD text from {upload_file.filename}: {e} ===", exc_info=True)
         return ""
     finally:
         if temp_path and os.path.exists(temp_path):
