@@ -45,7 +45,7 @@ const Login = ({ onLoginSuccess }) => {
             <div className="login-card glass">
                 <div className="login-header">
                     <Briefcase size={32} className="logo-icon" />
-                    <h1>Recruitment Assistant</h1>
+                    <h1>ProfileIQ</h1>
                     <p>Sign in to continue to your dashboard</p>
                 </div>
 
@@ -86,7 +86,7 @@ const Login = ({ onLoginSuccess }) => {
                 </form>
 
                 <div className="login-footer">
-                    <p>&copy; 2026 Recruitment Assistant. All rights reserved.</p>
+                    <p>&copy; 2026 ProfileIQ. All rights reserved.</p>
                 </div>
             </div>
         </div>

@@ -89,7 +89,7 @@ const Sidebar = ({ threads, activeThreadId, onNewChat, onSwitchThread, onRenameT
             <div className="sidebar-header">
                 <Link to="/" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>
                     <Briefcase className="logo-icon" />
-                    <span>Recruitment Assistant</span>
+                    <span>ProfileIQ</span>
                 </Link>
             </div>
 
