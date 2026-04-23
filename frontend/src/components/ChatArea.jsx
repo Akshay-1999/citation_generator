@@ -34,7 +34,7 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                 {messages.length === 0 ? (
                     <div className="welcome-screen">
                         <div className="welcome-icon">📝</div>
-                        <h2>Recruitment Assistant</h2>
+                        <h2>ProfileIQ</h2>
                         <p>Start a new chat to begin screening candidates or answering recruitment queries.</p>
                     </div>
                 ) : (
@@ -91,7 +91,7 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Message Recruitment Assistant..."
+                        placeholder="Message ProfileIQ..."
                         rows={1}
                         style={{ height: 'auto' }}
                     />
