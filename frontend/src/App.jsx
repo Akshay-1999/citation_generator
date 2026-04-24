@@ -11,13 +11,14 @@ import { api, BASE_URL } from './api';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import './App.css';
 
-function Dashboard({ 
-  userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread, 
-  onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage, 
-  isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen, 
-  setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile, 
+function Dashboard({
+  userName, userEmail, userRole, threads, activeThreadId, onNewChat, onSwitchThread,
+  onRenameThread, onDeleteThread, messages, isTyping, handleSendMessage,
+  isFolderModalOpen, setIsFolderModalOpen, isFileSelectionModalOpen,
+  setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile,
   handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress,
-  view, setView, screeningResults, handleConvertToEstuate, onViewResults, onDownload
+  view, setView, screeningResults, handleConvertToEstuate, onViewResults, onDownload,
+  pastReports, activeReportId, onSelectReport
 }) {
   return (
     <div className="app-container">
@@ -33,11 +34,14 @@ function Dashboard({
         userRole={userRole}
         onLogout={onLogout}
         onViewResults={onViewResults}
+        pastReports={pastReports}
+        activeReportId={activeReportId}
+        onSelectReport={onSelectReport}
       />
 
       {view === 'dashboard' ? (
-        <ScreeningDashboard 
-          results={screeningResults} 
+        <ScreeningDashboard
+          results={screeningResults}
           onBack={() => setView('chat')}
           onDownload={onDownload}
           onConvertToEstuate={handleConvertToEstuate}
@@ -117,7 +121,7 @@ function Dashboard({
   );
 }
 
-function AdminLayout({ userName, userEmail, userRole, onLogout, children }) {
+function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, activeReportId, children }) {
   if (userRole !== 'admin') return <Navigate to="/" replace />;
 
   return (
@@ -131,6 +135,10 @@ function AdminLayout({ userName, userEmail, userRole, onLogout, children }) {
         userEmail={userEmail}
         userRole={userRole}
         onLogout={onLogout}
+        onViewResults={() => { window.location.href = '/'; }}
+        pastReports={pastReports}
+        activeReportId={activeReportId}
+        onSelectReport={(id) => { window.location.href = `/?report=${id}`; }}
       />
       {children}
     </div>
@@ -148,6 +156,17 @@ function App() {
   const [view, setView] = useState('chat'); // 'chat' or 'dashboard'
   const [screeningResults, setScreeningResults] = useState([]);
   const [downloadReportUrl, setDownloadReportUrl] = useState(null);
+  const [pastReports, setPastReports] = useState([]);
+  const [activeReportId, setActiveReportId] = useState(null);
+
+  const fetchReports = async () => {
+    try {
+      const reports = await api.fetchReports();
+      setPastReports(reports);
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+    }
+  };
 
   const handleConvertToEstuate = (candidate) => {
     setUploadProgress({ active: true, message: `Converting ${candidate.name}...`, status: 'uploading' });
@@ -195,9 +214,13 @@ function App() {
       });
       setAuthStatus(true);
 
-      // Pre-load threads if authenticated
-      const threadList = await api.fetchThreads();
+      // Pre-load threads and reports if authenticated
+      const [threadList, reportList] = await Promise.all([
+        api.fetchThreads(),
+        api.fetchReports()
+      ]);
       setThreads(threadList);
+      setPastReports(reportList);
     } catch (err) {
       setAuthStatus(false);
       setUser({ username: '', email: '', role: '' });
@@ -207,6 +230,41 @@ function App() {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Handle report ID in URL if coming from Admin or other link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get('report');
+    if (reportId && authStatus === true) {
+      handleSelectReport(reportId);
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [authStatus]);
+
+  const handleSelectReport = async (reportId) => {
+    setActiveReportId(reportId);
+    setUploadProgress({ active: true, message: 'Loading Report...', status: 'uploading' });
+    try {
+      // Find the report name from our list to construct the download URL
+      const reportInfo = pastReports.find(r => r.id === reportId);
+      const data = await api.fetchReportResults(reportId);
+      
+      setScreeningResults(data.results);
+      if (reportInfo && reportInfo.report_name) {
+        setDownloadReportUrl(`/folder/download_report/${reportInfo.report_name}.xlsx`);
+      } else {
+        setDownloadReportUrl(null);
+      }
+      
+      setView('dashboard');
+    } catch (err) {
+      console.error('Failed to load report:', err);
+      alert('Failed to load report');
+    } finally {
+      setUploadProgress({ active: false, message: '', status: 'uploading' });
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -248,12 +306,12 @@ function App() {
 
   const handleSendMessage = async (query) => {
     // We no longer append text to the content; instead, we store it separately for UI
-    const userMsg = { 
-      role: 'user', 
+    const userMsg = {
+      role: 'user',
       content: query,
-      attachments: [...selectedFiles] 
+      attachments: [...selectedFiles]
     };
-    
+
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
@@ -280,16 +338,17 @@ function App() {
     setUploadProgress({ active: true, message: `Uploading ${files.length} resumes...`, status: 'uploading' });
     try {
       const data = await api.processFolder(files, jd, jdFile);
-      
+
       if (data.results && data.results.length > 0) {
         setScreeningResults(data.results);
         setDownloadReportUrl(data.download_url);
-        
+
         setUploadProgress({ active: true, message: 'Screening Complete', status: 'success' });
-        
+
         setTimeout(() => {
           setUploadProgress({ active: false, message: '', status: 'uploading' });
           setView('dashboard');
+          fetchReports(); // Refresh history
         }, 1500);
       } else {
         setUploadProgress({ active: true, message: data.message || 'Processing Complete (No results)', status: 'success' });
@@ -367,7 +426,14 @@ function App() {
         <Route path="/login" element={authStatus ? <Navigate to="/" replace /> : <Login onLoginSuccess={checkAuth} />} />
 
         <Route path="/admin" element={
-          <AdminLayout userName={user.username} userEmail={user.email} userRole={user.role} onLogout={handleLogout}>
+          <AdminLayout 
+            userName={user.username} 
+            userEmail={user.email} 
+            userRole={user.role} 
+            onLogout={handleLogout}
+            pastReports={pastReports}
+            activeReportId={activeReportId}
+          >
             <AdminPanel />
           </AdminLayout>
         } />
@@ -403,6 +469,9 @@ function App() {
               setView={setView}
               screeningResults={screeningResults}
               handleConvertToEstuate={handleConvertToEstuate}
+              pastReports={pastReports}
+              activeReportId={activeReportId}
+              onSelectReport={handleSelectReport}
               onDownload={() => {
                 if (downloadReportUrl) {
                   const fullUrl = `${BASE_URL}${downloadReportUrl}`;
@@ -412,6 +481,8 @@ function App() {
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
+                } else {
+                  alert('Download link not available for this report. The file might have been removed from the server.');
                 }
               }}
               onViewResults={() => {

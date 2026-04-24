@@ -11,19 +11,19 @@ from utils.logger_instances import folder_processer_logger as logger
 
 load_dotenv()
 
-async def save_results_to_db(results: list, user_id: str):
+async def save_results_to_db(results: list, user_id: str, batch_id: str = None):
     """Save screening results to the core.bulk_screening_results table."""
-    logger.info(f"--- Saving {len(results)} results to database ---")
+    logger.info(f"--- Saving {len(results)} results to database (Batch: {batch_id}) ---")
     pool = await Database.get_pool()
     async with pool.acquire() as conn:
         try:
-            # Prepare the query
+            # Prepare the query - added batch_id
             query = """
                 INSERT INTO core.bulk_screening_results (
                     user_id, name, confidence_score, certification, experience_comparison, 
                     skills, original_file, phone, email, experience_in_resume, 
-                    last_company, gaps, stability, resume_gaps_against_jd, error
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                    last_company, gaps, stability, resume_gaps_against_jd, error, batch_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             """
             
             # Prepare data for insertion
@@ -50,7 +50,8 @@ async def save_results_to_db(results: list, user_id: str):
                     res.get("gaps"),
                     res.get("stability"),
                     res.get("resume_gaps_against_jd"),
-                    res.get("error") # Add error column
+                    res.get("error"), # Add error column
+                    uuid.UUID(batch_id) if batch_id else None
                 )
                 insert_data.append(data)
             
@@ -61,8 +62,24 @@ async def save_results_to_db(results: list, user_id: str):
         except Exception as e:
             logger.error(f"--- Error inserting results to database: {e} ---")
 
+async def create_screening_batch(user_id, report_name, position, experience, client_name, jd_text):
+    """Create a new batch record in the database."""
+    batch_id = str(uuid.uuid4())
+    pool = await Database.get_pool()
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                INSERT INTO core.screening_batches (id, user_id, report_name, position, experience, client_name, jd_text)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            """, uuid.UUID(batch_id), uuid.UUID(user_id), report_name, position, experience, client_name, jd_text)
+            
+            return batch_id, report_name
+        except Exception as e:
+            logger.error(f"Error creating batch: {e}")
+            return None, report_name
 
-async def process_resumes_to_excel(job_description: str, file_names: list, user_id: str, output_file: str):
+
+async def process_resumes_to_excel(job_description: str, file_names: list, user_id: str, output_file: str, batch_id: str = None):
     """
     Approach: Iterate through resumes one by one and collect results.
     This ensures that the LLM focuses on one candidate at a time, 
@@ -130,8 +147,8 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
         df.to_excel(output_file, index=False)
         logger.info(f"--- SUCCESS: Results saved to {output_file} ---")
         
-        # Save to Database
-        await save_results_to_db(all_results, user_id)
+        # Save to Database with batch_id
+        await save_results_to_db(all_results, user_id, batch_id)
         return all_results
     else:
         logger.warning("--- No results to save ---")

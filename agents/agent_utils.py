@@ -114,6 +114,36 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
     else:
         return f"{default_personality}\n\n{STATIC_SYSTEM_PROMPT}"
 
+def get_jd_analysis_system_prompt() -> str:
+    """
+    Prompt for extracting Position, Experience, and Client from a Job Description.
+    """
+    return """
+    You are a Recruitment Analyst. Your task is to analyze a Job Description (JD) and extract three specific pieces of information:
+    1. Target Position Title (e.g., 'Senior Java Developer', 'Project Manager')
+    2. Minimum Required Years of Experience (as a single integer, e.g., 5)
+    3. Target Client Name (The company hiring for this role, e.g., 'Google', 'Estuate')
+
+    Respond ONLY with a JSON object in this format:
+    {{
+      "position": "extracted position title",
+      "experience": integer_years,
+      "client_name": "extracted client name"
+    }}
+
+    CLIENT EXTRACTION RULES:
+    - Look for the company or client name hiring for the role.
+    - It is often mentioned after a hyphen, dash, or in parentheses at the end of the position title. 
+      Example: "AI Developer – Azure Automation Engineer (Halo Service Desk)" -> Client is "Halo Service Desk".
+    - If you see a pattern like "Position - Company" or "Position @ Company", extract the company.
+    - If the client name is not explicitly mentioned, use 'Unknown'.
+
+    GENERAL RULES:
+    - If years of experience is a range (e.g., 3-5 years), provide the minimum (3). 
+    - If not found, use 0 for experience and 'Unknown Position' for position.
+    - Do not include markdown code blocks or explanations.
+    """
+
 def get_resume_mapping_system_prompt(user_prompt: str = None) -> str:
     """
     System prompt for the ResumeMappingAgent.

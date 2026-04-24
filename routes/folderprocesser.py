@@ -8,6 +8,8 @@ from pathlib import Path
 import uuid
 import os
 import hashlib
+import json
+from datetime import datetime
 
 from routes.auth import login_required
 from utils.logging_utils import set_system_logger
@@ -17,34 +19,42 @@ from embedding.pinecone_index import delete_pinecone_index
 from agents.agents_main import ResumeMappingAgent
 from routes.endpoint.bulk_processing import process_resumes_to_excel
 from document_processing.document_loader import MemoryEfficientFileloader
+from db.config import Database
+from agents.agent_utils import get_jd_analysis_system_prompt
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langsmith import traceable
+from dotenv import load_dotenv
 
-import os
-import sys
-import platform
+load_dotenv(override=True)  # loads .env from the current working directory
 
 from utils.logger_instances import folder_processer_logger as logger
 
-# 🚀 DEBUG: Environment Info
-logger.info(f"--- ENVIRONMENT TRACE ---")
-logger.info(f"OS: {os.name} | Platform: {platform.system()} | Release: {platform.release()}")
-logger.info(f"PWD: {os.getcwd()}")
-logger.info(f"Python Version: {sys.version}")
-logger.info(f"-------------------------")
-
 folder_processer_router = APIRouter()
 
-# Resolve project root (two levels up from this file: routes/ -> project_root/)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+@traceable(run_type="chain", name="Experiance_position_mapping_agent")
+def process_query(query: str):
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", get_jd_analysis_system_prompt()),
+        ("human", "{input}")
+    ])
+    chain = prompt | llm
+    response = chain.invoke({
+        "input": query
+    })
+    return response.content
 
+# Resolve project root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = "uploaded_files"
 REPORTS_DIR = "screening_reports"
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def calculate_md5_bytes(data: bytes) -> str:
-    """Calculate MD5 from raw bytes."""
     return hashlib.md5(data).hexdigest()
 
-async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str:
+async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str) -> str:
     """Save UploadFile to temp and extract text using the document loader."""
     content = await upload_file.read()
     if not content:
@@ -65,7 +75,7 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
             temp_path = tmp.name
             tmp.write(content)
         
-        logger.info(f"--- Extracting JD text from temp file: {temp_path} ---")
+        logger.info(f"--- Extracting JD_content from temp file: {temp_path} ---")
         loader = MemoryEfficientFileloader(user_id=user_id)
         extracted_text = ""
         async for doc in loader._process_file(temp_path, user_id=user_id, file_name=upload_file.filename):
@@ -74,7 +84,6 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
         
         if not extracted_text.strip():
              logger.warning(f"--- No text extracted from JD file: {upload_file.filename} ---")
-             
         return extracted_text.strip()
     except Exception as e:
         logger.error(f"=== Error extracting JD text from {upload_file.filename}: {e} ===", exc_info=True)
@@ -86,6 +95,78 @@ async def extract_text_from_upload(upload_file: UploadFile, user_id: str) -> str
             except Exception as cleanup_err:
                 logger.error(f"=== Error cleaning up temp JD file: {cleanup_err} ===")
 
+async def analyze_jd(jd_text: str) -> Dict[str, Any]:
+    """Use LLM to extract position, experience and client from JD."""
+    try:
+        client = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = get_jd_analysis_system_prompt()
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": f"Analyze this Job Description:\n\n{jd_text}"}
+        ]
+        response = await client.ainvoke(messages)
+        # Handle potential markdown code blocks in LLM output
+        content = response.content
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].strip()
+        return json.loads(content)
+    except Exception as e:
+        logger.error(f"Error analyzing JD: {e}")
+        return {"position": "Unknown Position", "experience": 0, "client_name": "Unknown"}
+
+
+@folder_processer_router.get("/list_reports")
+async def list_reports(session = Depends(login_required)):
+    """List all past screening reports for the user."""
+    if session is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user_id = session.get('user_id')
+    pool = await Database.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, report_name, position, experience, client_name, created_at 
+            FROM core.screening_batches 
+            WHERE user_id = $1 
+            ORDER BY created_at DESC
+        """, uuid.UUID(user_id))
+        
+        return [{
+            "id": str(r['id']),
+            "report_name": r['report_name'],
+            "position": r['position'],
+            "experience": r['experience'],
+            "client_name": r.get('client_name', 'Unknown'),
+            "created_at": r['created_at'].isoformat()
+        } for r in rows]
+
+@folder_processer_router.get("/get_report_results/{batch_id}")
+async def get_report_results(batch_id: str, session = Depends(login_required)):
+    """Get screening results for a specific batch."""
+    if session is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user_id = session.get('user_id')
+    pool = await Database.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM core.bulk_screening_results 
+            WHERE batch_id = $1 AND user_id = $2
+        """, uuid.UUID(batch_id), uuid.UUID(user_id))
+        
+        results = []
+        for r in rows:
+            res = dict(r)
+            res['id'] = str(res.get('id'))
+            res['user_id'] = str(res.get('user_id'))
+            res['batch_id'] = str(res.get('batch_id'))
+            if isinstance(res.get('skills'), str):
+                res['skills'] = [s.strip() for s in res['skills'].split(",") if s.strip()]
+            results.append(res)
+            
+        return {"results": results}
 
 @folder_processer_router.get("/download_report/{filename}")
 async def download_report(filename: str, session = Depends(login_required)):
@@ -124,125 +205,67 @@ async def process_folder(
     user_id = session.get('user_id')
     user_email = session.get('email')
 
-    logger.info(f"=== Started folder processing for user: {user_email}, Files: {len(files)} ===")
-
-    if not files:
-        raise HTTPException(status_code=400, detail="No files provided")
-
-    if not job_description and not jd_file:
-        raise HTTPException(status_code=400, detail="No Job Description provided")
-
     if jd_file:
-        logger.info(f"--- JD File detected: {jd_file.filename}. Attempting extraction... ---")
-        job_description = await extract_text_from_upload(jd_file, user_id)
-        if not job_description:
-             logger.error(f"!!! CRITICAL: Failed to extract text from JD file: {jd_file.filename} !!!")
-        else:
-            logger.info(f"--- Successfully extracted {len(job_description)} chars from JD file ---")
-    else:
-        logger.info(f"--- Using pasted JD text ({len(job_description)} chars) ---")
-        job_description = job_description.strip()
+        job_description = await extract_text_from_attachment_jd(jd_file, user_id)
+    
+    if not job_description: raise HTTPException(status_code=400, detail="No Job Description")
+
+    # 🚀 STEP 1: Analyze JD to get Position, Experience and Client
+    jd_analysis = await analyze_jd(job_description)
+    position = jd_analysis.get("position", "Unknown Position")
+    experience = jd_analysis.get("experience", 0)
+    client_name = jd_analysis.get("client_name", "Unknown")
+
+    # 🚀 STEP 2: Create Batch record
+    from routes.endpoint.bulk_processing import create_screening_batch
+    # Generate a descriptive report name
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    clean_position = position.replace(" ", "_")
+    clean_client = client_name.replace(" ", "_")
+    report_name = f"{clean_client}_{clean_position}_{experience}_{date_str}"
+    
+    batch_id, report_name = await create_screening_batch(user_id, report_name, position, experience, client_name, job_description)
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    file_to_process = []  # Files that need embedding (new or changed)
-    file_to_map = []      # All file names for bulk screening
+    file_to_process = []
+    file_to_map = []
 
     for uploaded_file in files:
-        # Strip folder prefix — browsers include it when using directory picker
-        # e.g. "test/resume.pdf" → "resume.pdf"
         file_name = os.path.basename(uploaded_file.filename)
-        
-        # Check file extension
         extension = await get_file_extension(file_name)
-        if extension is None:
-            logger.warning(f"=== Skipping unsupported file: {file_name} ===")
-            continue
-        
+        if extension is None: continue
         file_to_map.append(file_name)
-
-        # Read file content
         content = await uploaded_file.read()
-        file_size = len(content)
         md5 = calculate_md5_bytes(content)
-
-        # Check if file already exists in DB
         file_exists = await check_file_exists(file_name, user_id)
-        
         if file_exists:
             old_file_name, old_md5, old_file_path, old_file_id = file_exists
-            logger.debug(f"--- File '{file_name}' exists in DB. MD5 Check: New={md5}, Old={old_md5} ---")
-            if old_md5 == md5:
-                logger.info(f"--- File unchanged: {file_name} (skipped) ---")
-                continue
-            
-            # File changed — delete old vectors and re-process
+            if old_md5 == md5: continue
             filter_criteria = {"file_name": {"$in": [file_name]}, "user_id": {"$in": [user_id]}}
-            namespace = f"estuate-data-{user_id}"
-            await delete_pinecone_index(pinecone_filter=filter_criteria, namespace=namespace)
-            
-            try:
-                file_path = old_file_path
-                with open(file_path, "wb") as f:
-                    f.write(content)
-                await log_file_update(old_file_id, md5, file_size)
-                file_to_process.append(file_path)
-                logger.info(f"--- Updated existing file: {file_name} ---")
-            except Exception as e:
-                logger.error(f"=== Error updating file {file_name}: {e} ===")
-                continue
+            await delete_pinecone_index(pinecone_filter=filter_criteria, namespace=f"estuate-data-{user_id}")
+            with open(old_file_path, "wb") as f: f.write(content)
+            await log_file_update(old_file_id, md5, len(content))
+            file_to_process.append(old_file_path)
         else:
-            # New file — save to uploaded_files/
             new_file_path = os.path.join(UPLOAD_DIR, file_name)
-            try:
-                with open(new_file_path, "wb") as f:
-                    f.write(content)
-                await log_file_upload(user_id, file_name, new_file_path, extension, file_size, md5)
-                file_to_process.append(new_file_path)
-                logger.info(f"--- Saved new file: {file_name} ---")
-            except Exception as e:
-                logger.error(f"=== Error saving file {file_name}: {e} ===")
-                continue
+            with open(new_file_path, "wb") as f: f.write(content)
+            await log_file_upload(user_id, file_name, new_file_path, extension, len(content), md5)
+            file_to_process.append(new_file_path)
 
-    # Embed new/changed files
-    try:
-        if file_to_process:
-            logger.info(f"=== Attempting embedding for {len(file_to_process)} files: {file_to_process} ===")
-            await store_embeddings(specific_files=file_to_process, user_id=user_id, processing_mode="pymupdf4llm")
-            logger.info(f"=== Embedding SUCCESS for {len(file_to_process)} files ===")
-        else:
-            logger.info("--- No new/changed files to embed ---")
-    except Exception as e:
-        logger.error(f"!!! Error during embedding process: {e} !!!", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error embedding files: {str(e)}")
+    if file_to_process:
+        await store_embeddings(specific_files=file_to_process, user_id=user_id, processing_mode="pymupdf4llm")
 
-    # Bulk Screening Logic
     try:
-        # Use a unique filename for the report to avoid collisions
-        report_id = f"{user_id[:8]}_{uuid.uuid4().hex[:6]}"
-        output_filename = f"screening_{report_id}.xlsx"
+        output_filename = f"{report_name}.xlsx"
         output_path = os.path.join(REPORTS_DIR, output_filename)
+        results = await process_resumes_to_excel(job_description, file_to_map, user_id, output_path, batch_id)
         
-        logger.info(f"--- Starting bulk screening. Output: {output_path} | Resumes: {len(file_to_map)} ---")
-
-        if not file_to_map:
-            logger.warning("=== No supported files found in the uploaded files ===")
-            return JSONResponse(content={"message": "No supported files (PDF) found in the uploaded files.", "results": []})
-
-        logger.info(f"=== Starting bulk screening for {len(file_to_map)} files ===")
-        results = await process_resumes_to_excel(job_description, file_to_map, user_id, output_path)
-        
-        if os.path.exists(output_path):
-            return JSONResponse(content={
-                "message": "Screening completed successfully",
-                "results": results,
-                "download_url": f"/folder/download_report/{output_filename}"
-            })
-        else:
-            return JSONResponse(content={
-                "message": "Processing completed but no results were generated.",
-                "results": results or []
-            })
+        return JSONResponse(content={
+            "message": "Screening completed",
+            "results": results,
+            "report_name": report_name,
+            "download_url": f"/folder/download_report/{output_filename}"
+        })
     except Exception as e:
-        logger.error(f"=== Error during bulk screening: {e} ===")
-        raise HTTPException(status_code=500, detail=f"Error mapping resumes: {str(e)}")
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
