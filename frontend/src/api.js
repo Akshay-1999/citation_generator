@@ -45,12 +45,12 @@ export const api = {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                query, 
-                history, 
-                thread_id: threadId, 
+            body: JSON.stringify({
+                query,
+                history,
+                thread_id: threadId,
                 file_names: fileNames,
-                file_context: fileContext 
+                file_context: fileContext
             }),
         });
         return handleResponse(res, 'Failed to send message');
@@ -162,5 +162,16 @@ export const api = {
             body: JSON.stringify({ thread_title: threadTitle }),
         });
         return handleResponse(res, 'Failed to rename thread');
+    },
+
+    // Report History
+    fetchReports: async () => {
+        const res = await fetch(`${BASE_URL}/folder/list_reports`, { credentials: 'include' });
+        return handleResponse(res, 'Failed to fetch reports');
+    },
+
+    fetchReportResults: async (batchId) => {
+        const res = await fetch(`${BASE_URL}/folder/get_report_results/${batchId}`, { credentials: 'include' });
+        return handleResponse(res, 'Failed to fetch report results');
     }
 };

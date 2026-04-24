@@ -76,12 +76,16 @@ const ThreadItem = ({ thread, isActive, onSwitch, onRename, onDelete }) => {
     );
 };
 
-const Sidebar = ({ threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, userName, userEmail, userRole, onLogout, onViewResults }) => {
+const Sidebar = ({ 
+    threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, 
+    userName, userEmail, userRole, onLogout, onViewResults,
+    pastReports, onSelectReport, activeReportId
+}) => {
     const location = useLocation();
     const [showUserMenu, setShowUserMenu] = useState(false);
-    
+
     const LayoutDashboard = ({ size, className }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>
     );
 
     return (
@@ -125,7 +129,7 @@ const Sidebar = ({ threads, activeThreadId, onNewChat, onSwitchThread, onRenameT
                 </div>
 
                 <div className="section-label">Recent Chats</div>
-                <div className="history-list">
+                <div className="history-list" style={{ marginBottom: '2rem' }}>
                     {threads.length === 0 ? (
                         <div className="empty-history" style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             No recent chats
@@ -143,6 +147,31 @@ const Sidebar = ({ threads, activeThreadId, onNewChat, onSwitchThread, onRenameT
                         ))
                     )}
                 </div>
+
+                <div className="section-label">Screening Reports</div>
+                <div className="history-list">
+                    {(!pastReports || pastReports.length === 0) ? (
+                        <div className="empty-history" style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            No past reports
+                        </div>
+                    ) : (
+                        pastReports.map((report) => (
+                            <div
+                                key={report.id}
+                                className={`history-item ${activeReportId === report.id ? 'active' : ''}`}
+                                onClick={() => onSelectReport(report.id)}
+                            >
+                                <LayoutDashboard size={14} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                    <span className="history-title" style={{ width: '100%' }}>{report.report_name}</span>
+                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                        {new Date(report.created_at).toLocaleDateString()}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
 
             <div className="sidebar-footer">
@@ -153,7 +182,7 @@ const Sidebar = ({ threads, activeThreadId, onNewChat, onSwitchThread, onRenameT
                             <span>Settings</span>
                         </button>
                         <div className="menu-divider"></div>
-                        <button className="menu-item" onClick={() => { 
+                        <button className="menu-item" onClick={() => {
                             onViewResults();
                             setShowUserMenu(false);
                         }}>

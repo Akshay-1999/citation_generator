@@ -98,3 +98,36 @@ CREATE TABLE chathistory.messages (
         REFERENCES core.users (user_id)
         ON DELETE CASCADE
 );
+
+-- =========================
+-- bulk_screening_results Table
+-- =========================
+
+ALTER TABLE core.bulk_screening_results
+ADD COLUMN batch_id UUID;
+
+ALTER TABLE core.bulk_screening_results
+ADD CONSTRAINT fk_batch_id
+FOREIGN KEY (batch_id)
+REFERENCES core.screening_batches(id)
+ON DELETE CASCADE;
+
+
+-- =========================
+-- screening_batches Table
+-- =========================
+
+CREATE TABLE IF NOT EXISTS core.screening_batches ( 
+    id UUID PRIMARY KEY, 
+    user_id UUID NOT NULL, 
+    report_name TEXT NOT NULL, 
+    position TEXT, 
+    experience INTEGER, 
+    client_name TEXT, 
+    jd_text TEXT, 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT fk_user FOREIGN KEY (user_id) 
+    REFERENCES core.users(user_id) ON DELETE CASCADE 
+);
+
+alter table core.screening_batches add column client_name text;
