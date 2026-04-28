@@ -9,7 +9,7 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
 
     const handleFolderSelect = (e) => {
         const files = Array.from(e.target.files).filter(f => 
-            f.name.toLowerCase().endsWith('.pdf')
+            ['.pdf', '.doc', '.docx'].some(ext => f.name.toLowerCase().endsWith(ext))
         );
         setSelectedFiles(files);
     };
@@ -91,17 +91,17 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
                                 <>
                                     <FileUp size={28} style={{ color: '#8a94a6', marginBottom: '6px' }} />
                                     <p style={{ color: '#4a5568', margin: '4px 0 0', fontSize: '0.88rem' }}>
-                                        Click to select a folder with resume PDFs
+                                        Click to select a folder with resumes (PDF, DOC, DOCX)
                                     </p>
                                     <p style={{ color: '#8a94a6', margin: '4px 0 0', fontSize: '0.75rem' }}>
-                                        Only PDF files will be processed
+                                        PDF, DOC, and DOCX files will be processed
                                     </p>
                                 </>
                             ) : (
                                 <>
                                     <FileUp size={28} style={{ color: '#C41230', marginBottom: '6px' }} />
                                     <p style={{ color: '#C41230', margin: '4px 0 0', fontSize: '0.88rem', fontWeight: 600 }}>
-                                        {selectedFiles.length} PDF file{selectedFiles.length !== 1 ? 's' : ''} selected
+                                        {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
                                     </p>
                                     <p style={{ color: '#8a94a6', margin: '4px 0 0', fontSize: '0.75rem' }}>
                                         Click to change selection
