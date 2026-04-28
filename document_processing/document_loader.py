@@ -15,7 +15,7 @@ from utils.logger_instances import file_logger as logger
 from document_processing.document_chunking import split_pdf_create_chunk
 from typing import Optional , AsyncIterator ,List
 
-from document_processing.data_extraction import extract_with_pymupdf
+from document_processing.data_extraction import extract_with_pymupdf , extract_with_unstructured
 import uuid
 from routes.endpoint.filesendpoint import get_document_id , add_chunks_data
 
@@ -36,6 +36,7 @@ class MemoryEfficientFileloader:
         self.loader_mapping = {
             '.pdf': PyMuPDFLoader,
             '.docx': UnstructuredWordDocumentLoader,
+            '.doc': UnstructuredWordDocumentLoader,
             '.txt': TextLoader,
             '.csv': CSVLoader,
             '.md': TextLoader,
@@ -216,9 +217,58 @@ class MemoryEfficientFileloader:
                 processing_time = time.perf_counter() - start_time
                 logger.info(f"=== PROCESSING COMPLETED FOR FILE: {file.name} - {len(chunk_details)} chunks processed IN {processing_time:.2f} seconds ===")
                 return 
+            elif ext in ['.doc' , '.docx']:
+                logger.info(f"=== PROCESSING DOC/DOCX FILE WITH UNSTRUCTURED TOOL FOR FILE: {file_path} ===")
+                try:
+                    text, extraction_metadata = await extract_with_unstructured(file_path)
+                    
+                    # DB tracking — same as PDF branch
+                    document_id = await get_document_id(file_name, user_id)
+                    logger.info(f"--- Document ID for file {file_name}: {document_id} ---")
+                    
+                    if text and text.strip():
+                        # Build base metadata with all required fields
+                        base_meta = self._base_metadata(
+                            file_name, 
+                            str(file_path), 
+                            ext, 
+                            0,
+                            created_at, 
+                            modified_at, 
+                            user_id
+                        )
+                        base_meta['chunk_index'] = 0
+                        base_meta['start_page'] = 0
+                        base_meta['content_format'] = 'markdown'
+                        
+                        # Track chunk in DB
+                        if document_id:
+                            chunks_data = [(
+                                document_id, 0, extraction_metadata, "success"
+                            )]
+                            await add_chunks_data(chunks_data)
+                            logger.info(f"--- Inserted chunk data for document {file_name} ---")
+                        
+                        yield Document(page_content=text, metadata=base_meta)
+                    else:
+                        logger.warning(f"=== No text extracted from {file_name} ===")
+                        if document_id:
+                            chunks_data = [(
+                                document_id, 0, extraction_metadata, "skipped-nodata"
+                            )]
+                            await add_chunks_data(chunks_data)
+                    
+                    processing_time = time.perf_counter() - start_time
+                    logger.info(f"=== PROCESSING COMPLETED FOR FILE: {file.name} IN {processing_time:.2f} seconds ===")
+                    return
+                except Exception as e:
+                    logger.error(f"=== Error processing {file_path}: {e} ===", exc_info=True)
+                    yield self._error_doc("Failed to process file", file_name, ext, str(file_path), e)
+
         except Exception as e:
             logger.error(f"=== Error processing {file_path}: {e} ===", exc_info=True)
             yield self._error_doc("Failed to process file", file, ext, str(file_path), e)
+
 
 
     async def _load_process_single_file(self, file_path: str, user_id: Optional[str] = None , processing_mode='pymupdf4llm')-> List[Document]:

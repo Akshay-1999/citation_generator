@@ -12,6 +12,7 @@ import pymupdf4llm
 from langchain.schema import Document
 import time
 from utils.logging_utils import set_system_logger
+from langchain_community.document_loaders import UnstructuredWordDocumentLoader
 logger = set_system_logger("system_logger")
 
 
@@ -75,3 +76,39 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
             metadata["processing_time"] = processing_time
             return "", metadata
 
+async def extract_with_unstructured(file_path: str, page_range: Optional[List[int]] = None) -> str:
+    start_time = time.perf_counter()
+    start_timestamp = datetime.datetime.now()
+    logger.info(f"=== USING UNSTRUCTURED TOOL FOR FILE: {Path(file_path).name} ===")
+    metadata={
+        "chunk_name": file_path,
+        "processing_tool": 'unstructured_docx',
+        "start_timestamp": start_timestamp,
+        "processing_time": 0,
+        "task_id": "N/A",
+        "fallback_reason": "N/A",
+        "number_of_pages": None
+    }
+    loop = asyncio.get_running_loop()
+    try:
+        def _load_docx():
+            loader = UnstructuredWordDocumentLoader(file_path, mode="elements")
+            docs = loader.load()
+            # Combine all elements into a single text string
+            text = "\n\n".join([doc.page_content for doc in docs if doc.page_content.strip()])
+            return text
+        
+        result = await loop.run_in_executor(None, _load_docx)
+        
+        processing_time = time.perf_counter() - start_time
+        metadata["processing_time"] = processing_time
+        
+        logger.info(f"=== UNSTRUCTURED EXTRACTION COMPLETED FOR FILE: {Path(file_path).name} - SUCCESS IN {processing_time:.2f} seconds ===")
+        
+        return result, metadata
+        
+    except Exception as e:
+        logger.error(f"=== unstructured extraction failed: {e} ===")
+        processing_time = time.perf_counter() - start_time
+        metadata["processing_time"] = processing_time
+        return "", metadata
