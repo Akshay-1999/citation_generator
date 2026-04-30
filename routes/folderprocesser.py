@@ -10,6 +10,7 @@ import os
 import hashlib
 import json
 from datetime import datetime
+import re
 
 from routes.auth import login_required
 from utils.logging_utils import set_system_logger
@@ -50,6 +51,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = "uploaded_files"
 REPORTS_DIR = "screening_reports"
 os.makedirs(REPORTS_DIR, exist_ok=True)
+
+def sanitize_filename(name: str) -> str:
+    """Remove or replace characters that are unsafe for filenames."""
+    # Replace spaces with underscores
+    name = name.replace(" ", "_")
+    # Remove any character that isn't alphanumeric, underscore, or hyphen
+    return re.sub(r'[^\w\-]', '_', name)
 
 def calculate_md5_bytes(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
@@ -220,8 +228,8 @@ async def process_folder(
     from routes.endpoint.bulk_processing import create_screening_batch
     # Generate a descriptive report name
     date_str = datetime.now().strftime("%Y-%m-%d")
-    clean_position = position.replace(" ", "_")
-    clean_client = client_name.replace(" ", "_")
+    clean_position = sanitize_filename(position)
+    clean_client = sanitize_filename(client_name)
     report_name = f"{clean_client}_{clean_position}_{experience}_{date_str}"
     
     batch_id, report_name = await create_screening_batch(user_id, report_name, position, experience, client_name, job_description)
