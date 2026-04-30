@@ -42,3 +42,6 @@ uploaded_files/
 logs/
 *.log
 *.xlsx
+
+# SSL Certificates and Keys
+cert_keys/
