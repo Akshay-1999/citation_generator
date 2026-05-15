@@ -21,6 +21,20 @@ const AdminPanel = () => {
         fetchUsers();
     }, []);
 
+    const validatePasswordComplexity = (password) => {
+        const minLength = 12;
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        
+        if (password.length < minLength) return "Password must be at least 12 characters long.";
+        if (!hasUpperCase) return "Password must contain at least one uppercase letter.";
+        if (!hasNumber) return "Password must contain at least one number.";
+        if (!hasSpecialChar) return "Password must contain at least one special character.";
+        
+        return null; // Valid
+    };
+
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
@@ -52,9 +66,33 @@ const AdminPanel = () => {
         }
     };
 
-    const handleCreateUser = async (e) => {
+    const handleFetchActiveUsers = async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            const data = await api.fetchActiveUsers();
+            setUsers(data);
+            if (data.length === 0) {
+                setError('No active users found.');
+            }
+        } catch (err) {
+            setError('Failed to fetch active users: ' + err.message);
+            setUsers([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+     const handleCreateUser = async (e) => {
         e.preventDefault();
         setError('');
+        
+        const passwordError = validatePasswordComplexity(newUser.password);
+        if (passwordError) {
+            setError(passwordError);
+            return;
+        }
+
         try {
             await api.createUser(newUser);
             setIsAddingUser(false);
@@ -77,8 +115,15 @@ const AdminPanel = () => {
     };
 
     const handleResetPassword = async (email) => {
-        const newPass = window.prompt(`Enter new password for ${email}:`);
+        const newPass = window.prompt(`Enter new password for ${email}:\n(Min 12 chars, 1 uppercase, 1 number, 1 special char)`);
         if (!newPass) return;
+
+        const passwordError = validatePasswordComplexity(newPass);
+        if (passwordError) {
+            alert(passwordError);
+            return;
+        }
+
         try {
             await api.updatePassword(email, newPass);
             alert('Password updated successfully');
@@ -115,7 +160,10 @@ const AdminPanel = () => {
                     <h2>User Management</h2>
                     <p className="text-muted">Manage platform access and security roles</p>
                 </div>
-                <button className="process-btn" onClick={() => setIsAddingUser(true)}>
+                <button className="process-btn" onClick={() => {
+                    setIsAddingUser(true);
+                    setError('');
+                }}>
                     <UserPlus size={20} />
                     <span>Add New User</span>
                 </button>
@@ -138,6 +186,15 @@ const AdminPanel = () => {
                         disabled={isLoading || !searchTerm}
                     >
                         {isLoading ? <Loader2 className="animate-spin" size={16} /> : 'Search'}
+                    </button>
+                    <button
+                        type="button"
+                        className="process-btn"
+                        style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                        onClick={handleFetchActiveUsers}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? <Loader2 className="animate-spin" size={16} /> : 'Get Active Users'}
                     </button>
                 </form>
             </div>
@@ -240,10 +297,14 @@ const AdminPanel = () => {
                     <div className="modal-content animate-scale-in">
                         <div className="modal-header">
                             <h3>Add New User</h3>
-                            <button className="action-btn" onClick={() => setIsAddingUser(false)}>×</button>
+                            <button className="action-btn" onClick={() => {
+                                setIsAddingUser(false);
+                                setError('');
+                            }}>×</button>
                         </div>
                         <form onSubmit={handleCreateUser}>
                             <div className="modal-body">
+                                {error && <div className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem' }}>{error}</div>}
                                 <div className="input-group">
                                     <label>Full Name</label>
                                     <div className="input-with-icon">
@@ -305,10 +366,16 @@ const AdminPanel = () => {
                                             placeholder="••••••••"
                                         />
                                     </div>
+                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                        Min 12 characters, including uppercase, number, and special character.
+                                    </p>
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button type="button" className="cancel-btn" onClick={() => setIsAddingUser(false)}>Cancel</button>
+                                <button type="button" className="cancel-btn" onClick={() => {
+                                    setIsAddingUser(false);
+                                    setError('');
+                                }}>Cancel</button>
                                 <button type="submit" className="process-btn">Create User</button>
                             </div>
                         </form>

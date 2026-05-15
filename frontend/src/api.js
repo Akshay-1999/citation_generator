@@ -75,10 +75,18 @@ export const api = {
 
     deleteFile: async (fileId) => {
         const res = await fetch(`${BASE_URL}/file/delete_file/${fileId}`, {
-            method: 'DELETE',
+            method: 'PUT',
             credentials: 'include',
         });
         return handleResponse(res, 'Failed to delete file');
+    },
+
+    deleteReport: async (batchId) => {
+        const res = await fetch(`${BASE_URL}/folder/delete_report/${batchId}`, {
+            method: 'PUT',
+            credentials: 'include',
+        });
+        return handleResponse(res, 'Failed to delete report');
     },
 
     processFolder: async (files, jd, jdFile) => {
@@ -144,6 +152,11 @@ export const api = {
             credentials: 'include',
         });
         return handleResponse(res, 'Failed to update status');
+    },
+
+    fetchActiveUsers: async () => {
+        const res = await fetch(`${BASE_URL}/user/get_active_users`, { credentials: 'include' });
+        return handleResponse(res, 'Failed to fetch active users');
     },
 
     deleteThread: async (threadId) => {

@@ -138,6 +138,7 @@ async def list_reports(session = Depends(login_required)):
             SELECT id, report_name, position, experience, client_name, created_at 
             FROM core.screening_batches 
             WHERE user_id = $1 
+            and is_deleted = False
             ORDER BY created_at DESC
         """, uuid.UUID(user_id))
         
@@ -149,6 +150,19 @@ async def list_reports(session = Depends(login_required)):
             "client_name": r.get('client_name', 'Unknown'),
             "created_at": r['created_at'].isoformat()
         } for r in rows]
+
+@folder_processer_router.put("/delete_report/{batch_id}")
+async def delete_report(batch_id: str, session = Depends(login_required)):
+    """Delete a screening report."""
+    if session is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user_id = session.get('user_id')
+    from routes.endpoint.bulk_processing import delete_batch
+    result = await delete_batch(batch_id, user_id)
+    if result:
+        return {"message": "Report deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Report not found")
 
 @folder_processer_router.get("/get_report_results/{batch_id}")
 async def get_report_results(batch_id: str, session = Depends(login_required)):

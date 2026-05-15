@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Plus, User, Briefcase, Shield, LogOut, Settings, ChevronUp } from 'lucide-react';
+import { MessageSquare, Plus, User, Briefcase, Shield, LogOut, Settings, ChevronUp, Trash2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const ThreadItem = ({ thread, isActive, onSwitch, onRename, onDelete }) => {
@@ -79,7 +79,7 @@ const ThreadItem = ({ thread, isActive, onSwitch, onRename, onDelete }) => {
 const Sidebar = ({ 
     threads, activeThreadId, onNewChat, onSwitchThread, onRenameThread, onDeleteThread, 
     userName, userEmail, userRole, onLogout, onViewResults,
-    pastReports, onSelectReport, activeReportId
+    pastReports, onSelectReport, activeReportId, onDeleteReport
 }) => {
     const location = useLocation();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -162,11 +162,23 @@ const Sidebar = ({
                                 onClick={() => onSelectReport(report.id)}
                             >
                                 <LayoutDashboard size={14} />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden', flex: 1 }}>
                                     <span className="history-title" style={{ width: '100%' }}>{report.report_name}</span>
                                     <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                                         {new Date(report.created_at).toLocaleDateString()}
                                     </span>
+                                </div>
+                                <div className="thread-actions">
+                                    <button 
+                                        className="thread-action-btn delete"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteReport(report.id);
+                                        }}
+                                        title="Delete Report"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
                             </div>
                         ))

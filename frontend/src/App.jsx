@@ -18,7 +18,7 @@ function Dashboard({
   setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile,
   handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress,
   view, setView, screeningResults, handleConvertToEstuate, onViewResults, onDownload,
-  pastReports, activeReportId, onSelectReport
+  pastReports, activeReportId, onSelectReport, onDeleteReport
 }) {
   return (
     <div className="app-container">
@@ -37,6 +37,7 @@ function Dashboard({
         pastReports={pastReports}
         activeReportId={activeReportId}
         onSelectReport={onSelectReport}
+        onDeleteReport={onDeleteReport}
       />
 
       {view === 'dashboard' ? (
@@ -121,7 +122,7 @@ function Dashboard({
   );
 }
 
-function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, activeReportId, children }) {
+function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, activeReportId, onDeleteReport, children }) {
   if (userRole !== 'admin') return <Navigate to="/" replace />;
 
   return (
@@ -139,6 +140,7 @@ function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, act
         pastReports={pastReports}
         activeReportId={activeReportId}
         onSelectReport={(id) => { window.location.href = `/?report=${id}`; }}
+        onDeleteReport={onDeleteReport}
       />
       {children}
     </div>
@@ -374,7 +376,32 @@ function App() {
     }
   };
 
-  const handleRenameThread = async (threadId, newTitle) => {
+  const handleDeleteReport = async (reportId) => {
+    if (!window.confirm('Are you sure you want to delete this screening report?')) return;
+    
+    setUploadProgress({ active: true, message: 'Deleting Report...', status: 'uploading' });
+    try {
+      await api.deleteReport(reportId);
+      setPastReports((prev) => prev.filter((r) => r.id !== reportId));
+      
+      if (activeReportId === reportId) {
+        setActiveReportId(null);
+        setScreeningResults([]);
+        setView('chat');
+      }
+      
+      setUploadProgress({ active: true, message: 'Report Deleted Successfully', status: 'success' });
+      setTimeout(() => {
+        setUploadProgress({ active: false, message: '', status: 'uploading' });
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to delete report:', err);
+      setUploadProgress({ active: false, message: '', status: 'uploading' });
+      alert('Failed to delete report: ' + err.message);
+    }
+  };
+
+   const handleRenameThread = async (threadId, newTitle) => {
     if (!newTitle.trim()) return;
     try {
       await api.renameThread(threadId, newTitle);
@@ -403,10 +430,17 @@ function App() {
 
   const handleRemoveFile = async (fileId) => {
     if (window.confirm('Are you sure you want to permanently delete this file?')) {
+      setUploadProgress({ active: true, message: 'Deleting File...', status: 'uploading' });
       try {
         await api.deleteFile(fileId);
         setSelectedFiles(prev => prev.filter(f => f.file_id !== fileId));
+        setUploadProgress({ active: true, message: 'File Deleted Successfully', status: 'success' });
+        setTimeout(() => {
+          setUploadProgress({ active: false, message: '', status: 'uploading' });
+        }, 2000);
       } catch (err) {
+        console.error('Failed to delete file:', err);
+        setUploadProgress({ active: false, message: '', status: 'uploading' });
         alert('Failed to delete file: ' + err.message);
       }
     }
@@ -433,6 +467,7 @@ function App() {
             onLogout={handleLogout}
             pastReports={pastReports}
             activeReportId={activeReportId}
+            onDeleteReport={handleDeleteReport}
           >
             <AdminPanel />
           </AdminLayout>
@@ -472,6 +507,7 @@ function App() {
               pastReports={pastReports}
               activeReportId={activeReportId}
               onSelectReport={handleSelectReport}
+              onDeleteReport={handleDeleteReport}
               onDownload={() => {
                 if (downloadReportUrl) {
                   const fullUrl = `${BASE_URL}${downloadReportUrl}`;
