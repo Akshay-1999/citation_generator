@@ -94,9 +94,12 @@ async def list_files(session = Depends(login_required)):
     files = await get_user_files(user_id)
     return files
 
-@file_router.delete("/delete_file/{file_id}")
+@file_router.put("/delete_file/{file_id}")
 async def delete_file(file_id: str, session = Depends(login_required)):
     user_id = session["user_id"]
     from routes.endpoint.filesendpoint import delete_file
     result = await delete_file(file_id, user_id)
-    return result
+    if result:
+        return {"message": "File deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="File not found")

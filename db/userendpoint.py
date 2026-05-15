@@ -162,3 +162,21 @@ async def update_active_status_endpoint(request: Request , email: EmailStr, is_a
     except Exception as e:
         logger.error(f"=== Error updating active status for user with email {email}: {e} ===")
         raise HTTPException(status_code=500, detail=str(e))
+
+@userrouter.get("/get_active_users")
+async def get_active_users_endpoint(request: Request , session = Depends(login_required)):
+    if session is None:
+        logger.error("=== Unauthorized user list fetch attempt: No active session ===")
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user_details_role = session.get('role')
+    if user_details_role != "admin" or user_details_role is None:
+        logger.error(f"=== Unauthorized user list fetch attempt by user_id: {session.get('user_id')} ===")
+        raise HTTPException(status_code=403, detail="Operation not permitted. Admin role required.")
+    from db.endpoints.user import get_active_users
+    try:
+        logger.info(f"--- Fetching active users ---")
+        users = await get_active_users()
+        return users
+    except Exception as e:
+        logger.error(f"=== Error fetching active users: {e} ===")
+        raise HTTPException(status_code=500, detail=str(e))

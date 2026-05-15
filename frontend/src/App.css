@@ -193,6 +193,11 @@ h1, h2, h3, h4 {
   color: var(--text-primary);
 }
 
+.thread-action-btn.delete:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--error);
+}
+
 .thread-menu-dropdown {
   position: absolute;
   top: 100%;

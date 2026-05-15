@@ -150,3 +150,19 @@ async def update_active_status(email: str, is_active: bool):
             return {"error": "No user found with the provided email."}
         logger.info(f"=== Active status updated successfully for user with email: {email} ===")
         return {"message": "Active status updated successfully."}
+
+async def get_active_users():
+    logger.info("--- Getting DB connection pool for fetching active users ---")
+    pool = await Database.get_pool()
+    async with pool.acquire() as connection:
+        logger.info(f"--- Fetching active users ---")
+        rows = await connection.fetch(
+            """
+            SELECT user_id, username, email, user_role, created_at, is_active
+            FROM core.users
+            WHERE is_active = true
+            """
+        )
+        users = [dict(row) for row in rows]
+        logger.info(f"--- Fetched {len(users)} active users successfully ---")
+        return users

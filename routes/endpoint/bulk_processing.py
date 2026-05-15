@@ -85,7 +85,7 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
     This ensures that the LLM focuses on one candidate at a time, 
     reducing errors and ensuring clean JSON output for each.
     """
-    client = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    client = ChatOpenAI(model="gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"))
     agent = ResumeMappingAgent(client=client)
     
     all_results = []
@@ -153,3 +153,16 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
     else:
         logger.warning("--- No results to save ---")
         return []
+
+async def delete_batch(batch_id, user_id):
+    """Delete a batch and all its associated data."""
+    try:
+        from db.config import Database
+        pool = await Database.get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute("UPDATE core.screening_batches SET is_deleted = true, deleted_at = NOW() WHERE id = $1", uuid.UUID(batch_id))    
+            logger.info(f"--- Batch {batch_id} deleted successfully ---")
+            return True
+    except Exception as e:
+        logger.error(f"Error deleting batch {batch_id}: {e}")
+        return False
