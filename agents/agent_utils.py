@@ -57,6 +57,13 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
             - Partial Match
             - Missing
 
+        MATCHED SKILLS EXTRACTION (CRITICAL RULES):
+        - You MUST strictly extract the exact overlapping skills between the Job Description (JD) and the candidate's resume.
+        - The `matched_skills` field MUST ONLY contain skills that are explicitly mentioned in BOTH the JD and the resume.
+        - Do NOT include skills the candidate has if they are not requested in the JD.
+        - Do NOT include skills requested in the JD if the candidate does not have them.
+        - Extract the skill names verbatim.
+
         SKILL VALIDATION RULES
         - Count a skill only if it is backed by:
             - Real project work
@@ -138,6 +145,7 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
     - phone: (Contact number from resume)
     - email: (Email address from resume)
     - skills: (Key technical/soft skills found)
+    - matched_skills: (Skills explicitly mentioned in BOTH the JD and the candidate's resume)
     - experience_in_resume: (Total years of experience)
     - experience_comparison: (Meets / Exceeds / Falls short of JD)
     - last_company: (Most recent employer)
@@ -186,6 +194,7 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
     - name: Akshay Patil
     - phone: +91-7030XXXXXX
     - skills: Microsoft SQL Server, Oracle 19c, Python, Java, T-SQL, PL/SQL
+    - matched_skills: Microsoft SQL Server, Python, T-SQL
     - experience_in_resume: 2.3 years
     - experience_comparison: Falls short (Required: 3 years, Found: 2.3 years)
     - last_company: Estuate
@@ -293,6 +302,13 @@ RECRUITMENT SCREENING RULES:
             - Partial Match
             - Missing
 
+        MATCHED SKILLS EXTRACTION (CRITICAL RULES):
+        - You MUST strictly extract the exact overlapping skills between the Job Description (JD) and the candidate's resume.
+        - The `matched_skills` field MUST ONLY contain skills that are explicitly mentioned in BOTH the JD and the resume.
+        - Do NOT include skills the candidate has if they are not requested in the JD.
+        - Do NOT include skills requested in the JD if the candidate does not have them.
+        - Extract the skill names verbatim.
+
         SKILL VALIDATION RULES
         - Count a skill only if it is backed by:
             - Real project work
@@ -381,6 +397,7 @@ RECRUITMENT SCREENING RULES:
       "phone": "Contact number (verbatim from resume)",
       "email": "Email address (verbatim from resume)",
       "skills": ["skill1", "skill2", "..."],
+      "matched_skills": ["matched_skill_1", "matched_skill_2", "only skills that are explicitly mentioned in BOTH the JD and the candidate's resume"],
       "experience_in_resume": "X years (verbatim from resume)",
       "experience_comparison": "Meets / Exceeds / Falls short (Required: X, Found: Y)",
       "last_company": "Most recent employer (verbatim from resume)",
@@ -402,6 +419,7 @@ RECRUITMENT SCREENING RULES:
       "phone": "+91-7259537643",
       "email": "workakshaypatil@gmail.com",
       "skills": ["Microsoft SQL Server", "Oracle 19c", "Python", "T-SQL", "PL/SQL"],
+      "matched_skills": ["Microsoft SQL Server", "Python", "T-SQL"],
       "experience_in_resume": "2.3 years",
       "experience_comparison": "Falls short (Required: 3 years, Found: 2.3 years)",
       "last_company": "Estuate",

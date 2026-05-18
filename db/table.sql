@@ -107,6 +107,9 @@ ALTER TABLE core.bulk_screening_results
 ADD COLUMN batch_id UUID;
 
 ALTER TABLE core.bulk_screening_results
+ADD COLUMN matched_skills TEXT;
+
+ALTER TABLE core.bulk_screening_results
 ADD CONSTRAINT fk_batch_id
 FOREIGN KEY (batch_id)
 REFERENCES core.screening_batches(id)
