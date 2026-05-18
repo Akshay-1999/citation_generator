@@ -127,14 +127,14 @@ async def store_embeddings(specific_files : List[str] = None, user_id : str = No
     user_id: REQUIRED for user uploads; set to None only for global/shared (e.g., shared_data).
     """
     if user_id is None:
-        logger.error(f"User ID is required for file: {file_path}")
-        raise ValueError(f"store_embeddings: user_id must be provided for user upload containers: {container_name}")
+        logger.error(f"User ID is required for store_embeddings. Files: {specific_files}")
+        raise ValueError(f"store_embeddings: user_id must be provided for files: {specific_files}")
 
     index = await get_pinecone_index()
 
     if index is None:
-        logger.error(f"Pinecone index not found for file: {file_path}")
-        raise ValueError(f"store_embeddings: pinecone index not found for file: {file_path}")
+        logger.error(f"Pinecone index not found while processing files: {specific_files}")
+        raise ValueError(f"store_embeddings: pinecone index not found for files: {specific_files}")
 
     results = {}
     LOADING_SPLITTING_START, LOADING_SPLITTING_END = 20, 55

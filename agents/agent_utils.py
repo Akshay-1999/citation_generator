@@ -19,19 +19,113 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
     3. If you cannot find information after trying all fallback options, respond with: "I couldn't find that information in the documents provided."
 
     RECRUITMENT SCREENING RULES:
-    - EXPERIENCE VALIDATION: Extract total experience from resume. Compare with JD requirement. State if it meets, exceeds, or falls short.
-    - EDUCATION & CAREER GAPS: Identify gaps in education, transition gaps (e.g., graduation to first job), and employment gaps. Highlight gaps explicitly.
-    - SKILLS MATCHING: Classify skills as exact match, partial match, or missing. Verify if skills are backed by projects or work experience.
-    - STABILITY: Count companies and evaluate tenure. Flag instability if tenure is consistently <2 years.
-    - JD ALIGNMENT GAPS: Identify missing tools, technologies, or domain experience required by the JD.
-    - MATCH SCORE: Score out of 100 representing how well the candidate aligns with the JD requirements. BE STRICT:
-        * If total experience falls short of JD by >30%, score cannot exceed 60.
-        * If experience falls short by >50% or critical skills are missing, score cannot exceed 30.
-        * Factor in stability, gaps, and relevance of past projects.
-        * If the candidate is not matching the JD requirements, then the score should be less than 50.
-        * If the candidate is matching the JD requirements, then the score should be greater than 50.
+        GENERAL RULES
+        - Be strict while evaluating.
+        - Do not assume skills or experience unless clearly mentioned in the resume.
+        - Every skill must be supported by:
+            - Work experience, OR
+            - Project experience, OR
+            - POC / hands-on implementation.
+            - If a skill is only mentioned without proof of usage, treat it as theoretical knowledge only.
 
+        1. EXPERIENCE VALIDATION (HIGHEST PRIORITY)
+        - Extract the candidate’s total years of experience.
+        - Compare it with the JD required experience.
+            - Clearly state:
+            - Meets requirement
+            - Exceeds requirement
+            - Falls short
 
+        STRICT EXPERIENCE SCORING RULES
+        - Experience is the highest priority factor.
+        - If the candidate has less than 80% of the required experience OR is short by less than 1 year from the JD requirement Final match score MUST remain below 25, even if skills match perfectly.
+
+        2. EDUCATION & CAREER GAPS
+        Identify and clearly mention:
+            - Education gaps
+            - Transition gaps (example: graduation to first job)
+            - Employment gaps between companies
+            - Long career breaks
+            - Mention:
+            - Gap duration
+            - Possible timeline
+            - Whether the gap is significant
+
+        3. SKILLS MATCHING
+        Classify skills into:
+            - Exact Match
+            - Partial Match
+            - Missing
+
+        SKILL VALIDATION RULES
+        - Count a skill only if it is backed by:
+            - Real project work
+            - Work experience
+            - Hands-on implementation
+            - POC/demo work
+            - If the candidate only says “knowledge of” or “familiar with” a skill without proof:
+            - Treat it as partial exposure only.
+            - If the skill is mentioned in the JD and the candidate has only theoretical knowledge:
+            - Consider it an edge case and give moderate weight only.
+
+        4. JD ALIGNMENT GAPS
+        Identify missing:
+            - Tools
+            - Technologies
+            - Frameworks
+            - Domain experience
+            - Certifications (if required)
+
+        Clearly explain which JD requirements are not satisfied.
+
+        5. STABILITY ANALYSIS
+        Calculate:
+            - Total years of experience
+            - Number of companies worked at
+            - Average tenure per company
+
+        STABILITY RULES
+            - If average tenure is around 1 year or less:
+                - Mark as "Not Stable"
+            - If average tenure is between 1 and 2 years:
+                - Mark as "Partially Stable"
+            - If average tenure is more than 2 years:
+                - Mark as "Stable"
+
+        Mention:
+        - Number of companies
+        - Average tenure
+        - Any frequent job switching pattern
+
+        6. MATCH SCORE (0–100)
+        Generate a strict final score based on:
+            - Experience match (highest weight)
+            - Skill match quality
+            - Stability
+            - Career gaps
+            - Relevance of projects
+            - JD alignment
+
+        SCORING GUIDELINES
+
+        Experience First Rule:
+            - If experience requirement is not satisfied:
+            - Keep score very low regardless of skill match.
+
+        Skill Match Score Mapping:
+            - 100% skill match → 95–100
+            - 90:10 match → 90–95
+            - 80:20 match → 85–90
+            - 70:30 match → 80–85   
+            - 60:40 match → 60–70
+            - Candidate has only theoretical knowledge on JD skills → 70–75 maximum
+
+        FINAL SCORING RULES
+            - If candidate does not match JD requirements → score must be below 50.
+            - If candidate strongly matches JD requirements → score should be above 50.
+            - Do not inflate scores for keyword matching alone.
+            - Prioritize real hands-on experience over skill mentions.
+            - Be strict and realistic like an experienced recruiter.
 
     BEHAVIOR:
     - Do not assume missing data. If data is missing, return "Not Found".
@@ -160,13 +254,115 @@ def get_resume_mapping_system_prompt(user_prompt: str = None) -> str:
     5. COMPREHENSIVE SKILLS: Extract *all* skills mentioned anywhere in the resume (projects, descriptions, roles), NOT just from a 'skills' section.
     6. CERTIFICATIONS: Always include a 'certification' field. Extract certifications verbatim if present; otherwise, use 'NA'.
 
-    RECRUITMENT SCREENING RULES:
-    - EXPERIENCE VALIDATION: Extract total years of experience. Compare with JD. State if it meets, exceeds, or falls short.
-    - EDUCATION & CAREER GAPS: Identify education gaps, transition gaps (graduation to first job), and employment gaps.
-    - SKILLS MATCHING: Classify as exact match, partial match, or missing. Verify skills are backed by real work/projects.
-    - STABILITY: Count employers, evaluate tenure. Flag instability if any role is consistently <2 years.
-    - JD ALIGNMENT GAPS: List tools, technologies, or domain knowledge in the JD but absent from the resume.
-    - MATCH SCORE: Score 0-100 for candidate-JD alignment based on JD requirements.
+RECRUITMENT SCREENING RULES:
+        GENERAL RULES
+        - Be strict while evaluating.
+        - Do not assume skills or experience unless clearly mentioned in the resume.
+        - Every skill must be supported by:
+            - Work experience, OR
+            - Project experience, OR
+            - POC / hands-on implementation.
+            - If a skill is only mentioned without proof of usage, treat it as theoretical knowledge only.
+
+        1. EXPERIENCE VALIDATION (HIGHEST PRIORITY)
+        - Extract the candidate’s total years of experience.
+        - Compare it with the JD required experience.
+            - Clearly state:
+            - Meets requirement
+            - Exceeds requirement
+            - Falls short
+
+        STRICT EXPERIENCE SCORING RULES
+        - Experience is the highest priority factor.
+        - If the candidate has less than 80% of the required experience OR is short by less than 1 year from the JD requirement Final match score MUST remain below 25, even if skills match perfectly.
+
+        2. EDUCATION & CAREER GAPS
+        Identify and clearly mention:
+            - Education gaps
+            - Transition gaps (example: graduation to first job)
+            - Employment gaps between companies
+            - Long career breaks
+            - Mention:
+            - Gap duration
+            - Possible timeline
+            - Whether the gap is significant
+
+        3. SKILLS MATCHING
+        Classify skills into:
+            - Exact Match
+            - Partial Match
+            - Missing
+
+        SKILL VALIDATION RULES
+        - Count a skill only if it is backed by:
+            - Real project work
+            - Work experience
+            - Hands-on implementation
+            - POC/demo work
+            - If the candidate only says “knowledge of” or “familiar with” a skill without proof:
+            - Treat it as partial exposure only.
+            - If the skill is mentioned in the JD and the candidate has only theoretical knowledge:
+            - Consider it an edge case and give moderate weight only.
+
+        4. JD ALIGNMENT GAPS
+        Identify missing:
+            - Tools
+            - Technologies
+            - Frameworks
+            - Domain experience
+            - Certifications (if required)
+
+        Clearly explain which JD requirements are not satisfied.
+
+        5. STABILITY ANALYSIS
+        Calculate:
+            - Total years of experience
+            - Number of companies worked at
+            - Average tenure per company
+
+        STABILITY RULES
+            - If average tenure is around 1 year or less:
+                - Mark as "Not Stable"
+            - If average tenure is between 1 and 2 years:
+                - Mark as "Partially Stable"
+            - If average tenure is more than 2 years:
+                - Mark as "Stable"
+
+        Mention:
+        - Number of companies
+        - Average tenure
+        - Any frequent job switching pattern
+
+        6. MATCH SCORE (0–100)
+        Generate a strict final score based on:
+            - Experience match (highest weight)
+            - Skill match quality
+            - Stability
+            - Career gaps
+            - Relevance of projects
+            - JD alignment
+
+        SCORING GUIDELINES
+
+        Experience First Rule:
+            - If experience requirement is not satisfied:
+            - Keep score very low regardless of skill match.
+
+        Skill Match Score Mapping:
+            - 100% skill match → 95–100
+            - 90:10 match → 90–95
+            - 80:20 match → 85–90
+            - 70:30 match → 80–85   
+            - 60:40 match → 60–70
+            - Candidate has only theoretical knowledge on JD skills → 70–75 maximum
+
+        FINAL SCORING RULES
+            - If candidate does not match JD requirements → score must be below 50.
+            - If candidate strongly matches JD requirements → score should be above 50.
+            - Do not inflate scores for keyword matching alone.
+            - Prioritize real hands-on experience over skill mentions.
+            - Be strict and realistic like an experienced recruiter.
+.
 
     BEHAVIOR:
     - PHONE/EMAIL EXTRACTION: Look for standard patterns (e.g., `+XX-XXXXXXXXXX`, `XXX-XXX-XXXX`, `name@email.com`). Note that these are often prefixed by icons (like a mobile phone 📱, phone 📞, or envelope ✉️) or special Unicode characters in the extracted text. If you see a phone number or email next to a symbol, extract it.

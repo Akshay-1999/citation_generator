@@ -26,15 +26,8 @@ async def get_pinecone_index():
             logger.error("=== PINECONE_API_KEY or PINECONE_INDEX_NAME not found in environment variables ===")
             raise ValueError("PINECONE_API_KEY or PINECONE_INDEX_NAME not found in environment variables")
         
-        # Check if the index exists before trying to access it
-        loop = asyncio.get_event_loop()
-        existing_indexes = await loop.run_in_executor(None, lambda: pc.list_indexes().names())
-        
-        if index_name not in existing_indexes:
-            logger.warning(f"=== Pinecone index '{index_name}' does not exist ===")
-            return None
-        logger.info(f"--- Pinecone index '{index_name}' found ---")
-        _pinecone_index = pc.Index(index_name)
+        # Automatically create or get the index
+        _pinecone_index = await create_pinecone_index()
 
     return _pinecone_index
 
