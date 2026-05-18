@@ -40,6 +40,26 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
                 None, 
                 lambda: pymupdf4llm.to_markdown(file_path)
             ) or ""
+            
+        # Detect silent failures where pymupdf4llm only extracts tables and misses the main text
+        doc = fitz.open(file_path)
+        try:
+            fitz_len = sum(len(page.get_text()) for page in (doc[i] for i in (page_range if page_range else range(len(doc)))))
+            if len(result.strip()) < 1000 and fitz_len > len(result.strip()) + 500:
+                raise Exception(f"pymupdf4llm returned only {len(result.strip())} chars, but fitz found {fitz_len} chars. Forcing fallback.")
+            
+            # Prevent resume headers (Name, Contact) from being stripped
+            if len(doc) > 0:
+                first_page_text = doc[0].get_text().strip()
+                if first_page_text:
+                    header_text = first_page_text[:300]
+                    # If the first 50 characters of the raw text are missing from the markdown, prepend the header
+                    if header_text[:50].strip() and header_text[:50].strip() not in result:
+                        logger.info(f"--- Prepended stripped header for {Path(file_path).name} ---")
+                        result = header_text + "\n\n" + result
+        finally:
+            doc.close()
+
         processing_time = time.perf_counter() - start_time
         metadata["processing_time"] = processing_time
         logger.info(f"=== PYMUPDF EXTRACTION COMPLETED FOR FILE: {Path(file_path).name} - SUCCESS IN {processing_time:.2f} seconds ===")
