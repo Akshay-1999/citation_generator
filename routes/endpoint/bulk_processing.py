@@ -21,9 +21,9 @@ async def save_results_to_db(results: list, user_id: str, batch_id: str = None):
             query = """
                 INSERT INTO core.bulk_screening_results (
                     user_id, name, confidence_score, certification, experience_comparison, 
-                    skills, original_file, phone, email, experience_in_resume, 
+                    skills, matched_skills, original_file, phone, email, experience_in_resume, 
                     last_company, gaps, stability, resume_gaps_against_jd, error, batch_id
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             """
             
             # Prepare data for insertion
@@ -34,6 +34,11 @@ async def save_results_to_db(results: list, user_id: str, batch_id: str = None):
                 if isinstance(skills, list):
                     skills = ", ".join(skills)
                 
+                # Handle matched_skills similarly
+                matched_skills = res.get("matched_skills", "")
+                if isinstance(matched_skills, list):
+                    matched_skills = ", ".join(matched_skills)
+                
                 # Extract values with defaults
                 data = (
                     uuid.UUID(user_id),
@@ -42,6 +47,7 @@ async def save_results_to_db(results: list, user_id: str, batch_id: str = None):
                     res.get("certification"),
                     res.get("experience_comparison"),
                     skills,
+                    matched_skills,
                     res.get("original_file"),
                     res.get("phone"),
                     res.get("email"),
@@ -139,7 +145,7 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
         
         # Reorder columns to put 'name' and 'match_score' first if they exist
         cols = df.columns.tolist()
-        preferred_order = ["name", "confidence_score", "certification", "experience_comparison", "skills", "original_file"]
+        preferred_order = ["name", "confidence_score", "certification", "experience_comparison", "skills", "matched_skills", "original_file"]
         existing_preferred = [c for c in preferred_order if c in cols]
         remaining = [c for c in cols if c not in existing_preferred]
         df = df[existing_preferred + remaining]

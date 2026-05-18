@@ -1419,6 +1419,13 @@ h1, h2, h3, h4 {
   border: 1px solid var(--glass-border);
 }
 
+.matched-skill {
+  background: rgba(22, 163, 74, 0.08);
+  color: var(--success);
+  border-color: rgba(22, 163, 74, 0.2);
+  font-weight: 500;
+}
+
 .more-skills {
   font-size: 0.75rem;
   color: var(--text-muted);

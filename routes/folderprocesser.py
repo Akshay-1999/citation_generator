@@ -186,6 +186,8 @@ async def get_report_results(batch_id: str, session = Depends(login_required)):
             res['batch_id'] = str(res.get('batch_id'))
             if isinstance(res.get('skills'), str):
                 res['skills'] = [s.strip() for s in res['skills'].split(",") if s.strip()]
+            if isinstance(res.get('matched_skills'), str):
+                res['matched_skills'] = [s.strip() for s in res['matched_skills'].split(",") if s.strip()]
             results.append(res)
             
         return {"results": results}

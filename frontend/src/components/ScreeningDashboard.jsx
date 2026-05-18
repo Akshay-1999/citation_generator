@@ -44,7 +44,8 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate })
                 <th>Candidate Details</th>
                 <th>Confidence</th>
                 <th>Experience & Stability</th>
-                <th>Key Skills Match</th>
+                <th>All Skills</th>
+                <th>Matched Skills</th>
                 <th>Gaps & Risks</th>
                 <th>Actions</th>
               </tr>
@@ -92,7 +93,7 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate })
                     </div>
                   </td>
 
-                  {/* Skills */}
+                  {/* All Skills */}
                   <td>
                     <div className="skills-cloud">
                       {Array.isArray(candidate.skills) ? (
@@ -104,6 +105,19 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate })
                       )}
                       {Array.isArray(candidate.skills) && candidate.skills.length > 5 && (
                         <span className="more-skills">+{candidate.skills.length - 5} more</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Matched Skills */}
+                  <td>
+                    <div className="skills-cloud">
+                      {Array.isArray(candidate.matched_skills) ? (
+                        candidate.matched_skills.map((skill, sIdx) => (
+                          <span key={sIdx} className="skill-tag matched-skill">{skill}</span>
+                        ))
+                      ) : (
+                        candidate.matched_skills ? <span className="skill-tag matched-skill">{candidate.matched_skills}</span> : <span className="text-muted">None</span>
                       )}
                     </div>
                   </td>
