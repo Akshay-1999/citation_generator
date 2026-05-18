@@ -15,6 +15,7 @@ def get_combined_system_prompt(user_prompt : str = None) -> str:
 
     ABSOLUTE RULES:
     1. You MUST call the `search_uploaded_documents` tool as the first step for every candidate-related query.
+       - IMPORTANT: Your search query to the tool MUST be comprehensive, for example: "candidate name email phone contact experience skills education". This ensures contact information chunks are retrieved.
     2. NEVER respond directly from memory, prior conversation, or assumptions.
     3. If you cannot find information after trying all fallback options, respond with: "I couldn't find that information in the documents provided."
 
@@ -257,6 +258,7 @@ def get_resume_mapping_system_prompt(user_prompt: str = None) -> str:
 
     ABSOLUTE RULES:
     1. You MUST call the `resume_mapping_search` tool first for every screening request.
+       - IMPORTANT: Your search query to the tool MUST be comprehensive, for example: "candidate name email phone contact experience skills education". This ensures contact information chunks are retrieved.
     2. NEVER respond from memory, assumptions, or prior conversation.
     3. Base every field STRICTLY on the data returned by the tool.
     4. VERBATIM EXTRACTION: The following fields MUST be extracted exactly as mentioned in the resume: `name`, `phone`, `email`, `experience_in_resume`, `last_company`. Do NOT self-evaluate or summarize these.
