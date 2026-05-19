@@ -52,11 +52,25 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
             if len(doc) > 0:
                 first_page_text = doc[0].get_text().strip()
                 if first_page_text:
+                    import re
+                    email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+                    raw_emails = set(re.findall(email_pattern, first_page_text.lower()))
+                    md_emails = set(re.findall(email_pattern, result.lower()))
+                    
+                    # Basic phone pattern
+                    phone_pattern = r'[\+\(]?[1-9][0-9 .\-\(\)]{8,}[0-9]'
+                    raw_phones = set(re.findall(phone_pattern, first_page_text))
+                    md_phones = set(re.findall(phone_pattern, result))
+                    
                     header_text = first_page_text[:300]
-                    # If the first 50 characters of the raw text are missing from the markdown, prepend the header
-                    if header_text[:50].strip() and header_text[:50].strip() not in result:
-                        logger.info(f"--- Prepended stripped header for {Path(file_path).name} ---")
-                        result = header_text + "\n\n" + result
+                    # If the first 50 characters of the raw text are missing from the markdown, or if contact info is missing
+                    heuristic_miss = bool(header_text[:50].strip() and header_text[:50].strip() not in result)
+                    missing_email = bool(len(raw_emails - md_emails) > 0)
+                    missing_phone = bool(len(raw_phones - md_phones) > 0)
+                    
+                    if heuristic_miss or missing_email or missing_phone:
+                        logger.info(f"--- Prepended stripped header for {Path(file_path).name} (heuristic_miss={heuristic_miss}, missing_email={missing_email}, missing_phone={missing_phone}) ---")
+                        result = "--- RAW TEXT FALLBACK FOR MISSING HEADER INFO ---\n" + first_page_text + "\n--- END RAW TEXT FALLBACK ---\n\n" + result
         finally:
             doc.close()
 
