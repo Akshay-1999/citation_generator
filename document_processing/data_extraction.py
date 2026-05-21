@@ -110,6 +110,67 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
             metadata["processing_time"] = processing_time
             return "", metadata
 
+def _is_html_disguised_as_doc(file_path: str) -> bool:
+    """
+    Naukri.com (and some other portals) download resumes as HTML files
+    but save them with a .doc extension. Detect this by sniffing the
+    first 512 bytes for an HTML signature.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(512).lstrip()  # skip any leading whitespace/BOM
+        header_lower = header[:100].lower()
+        return (
+            header.startswith(b"<!doctype html") or
+            header.startswith(b"<!DOCTYPE html") or
+            b"<html" in header_lower or
+            b"<html>" in header_lower
+        )
+    except Exception as e:
+        logger.warning(f"--- _is_html_disguised_as_doc could not read {file_path}: {e} ---")
+        return False
+
+
+def _extract_text_from_html_doc(file_path: str) -> str:
+    """
+    Extract visible text from a .doc file that is actually HTML (e.g. Naukri downloads).
+    Uses BeautifulSoup for clean, dependency-free extraction.
+    """
+    # Detect encoding — try UTF-8 first, then latin-1 as safe fallback
+    for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+        try:
+            with open(file_path, "r", encoding=enc, errors="replace") as f:
+                raw_html = f.read()
+            break
+        except Exception:
+            continue
+    else:
+        return ""
+
+    soup = BeautifulSoup(raw_html, "html.parser")
+
+    # Remove script and style elements that pollute text output
+    for tag in soup(["script", "style", "head", "meta", "link"]):
+        tag.decompose()
+
+    # Extract text, preserving paragraph breaks
+    lines = []
+    for element in soup.find_all(["p", "div", "li", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6", "span", "br"]):
+        text = element.get_text(separator=" ", strip=True)
+        if text:
+            lines.append(text)
+
+    # Deduplicate consecutive identical lines (tables sometimes repeat)
+    deduped = []
+    prev = None
+    for line in lines:
+        if line != prev:
+            deduped.append(line)
+        prev = line
+
+    return "\n\n".join(deduped)
+
+
 async def extract_with_unstructured(file_path: str, page_range: Optional[List[int]] = None) -> str:
     start_time = time.perf_counter()
     start_timestamp = datetime.datetime.now()
@@ -124,6 +185,24 @@ async def extract_with_unstructured(file_path: str, page_range: Optional[List[in
         "number_of_pages": None
     }
     loop = asyncio.get_running_loop()
+
+    # ── STEP 1: detect HTML-disguised .doc files (common with Naukri.com downloads) ──
+    try:
+        if _is_html_disguised_as_doc(file_path):
+            logger.info(f"--- Detected HTML-disguised .doc file: {Path(file_path).name}. Using BeautifulSoup extractor ---")
+            result = await loop.run_in_executor(None, _extract_text_from_html_doc, file_path)
+            processing_time = time.perf_counter() - start_time
+            metadata["processing_tool"] = "beautifulsoup_html_doc"
+            metadata["processing_time"] = processing_time
+            if result and result.strip():
+                logger.info(f"=== HTML-DOC EXTRACTION COMPLETED FOR FILE: {Path(file_path).name} - {len(result)} chars IN {processing_time:.2f} seconds ===")
+                return result, metadata
+            else:
+                logger.warning(f"=== BeautifulSoup extracted empty text from HTML-disguised doc: {Path(file_path).name} ===")
+    except Exception as html_err:
+        logger.error(f"=== HTML-doc extraction failed for {Path(file_path).name}: {html_err} ===")
+
+    # ── STEP 2: standard unstructured loader for real .docx / OLE .doc files ──
     try:
         def _load_docx():
             loader = UnstructuredWordDocumentLoader(file_path, mode="elements")
@@ -140,9 +219,98 @@ async def extract_with_unstructured(file_path: str, page_range: Optional[List[in
         logger.info(f"=== UNSTRUCTURED EXTRACTION COMPLETED FOR FILE: {Path(file_path).name} - SUCCESS IN {processing_time:.2f} seconds ===")
         
         return result, metadata
-        
+
     except Exception as e:
-        logger.error(f"=== unstructured extraction failed: {e} ===")
+        logger.warning(f"=== unstructured loader failed for {Path(file_path).name}: {e}. Trying python-docx fallback ===")
+        
+    # ── STEP 3: python-docx fallback for .docx files ──
+    try:
+        ext = Path(file_path).suffix.lower()
+        if ext == ".docx":
+            def _load_with_python_docx():
+                import docx
+                doc = docx.Document(file_path)
+                paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+                # Also extract tables
+                table_texts = []
+                for table in doc.tables:
+                    for row in table.rows:
+                        row_text = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
+                        if row_text:
+                            table_texts.append(row_text)
+                return "\n\n".join(paragraphs + table_texts)
+
+            result = await loop.run_in_executor(None, _load_with_python_docx)
+            processing_time = time.perf_counter() - start_time
+            metadata["processing_tool"] = "python_docx_fallback"
+            metadata["processing_time"] = processing_time
+            if result and result.strip():
+                logger.info(f"=== python-docx FALLBACK COMPLETED FOR FILE: {Path(file_path).name} - SUCCESS IN {processing_time:.2f} seconds ===")
+                return result, metadata
+    except Exception as docx_err:
+        logger.error(f"=== python-docx fallback also failed for {Path(file_path).name}: {docx_err} ===")
+
+    # ── STEP 4: olefile raw stream extractor for true OLE binary .doc files (Word 97-2003) ──
+    # This handles real .doc compound document files without needing LibreOffice.
+    try:
+        def _extract_from_ole_stream(fp: str) -> str:
+            import olefile
+            import re as _re
+            ole = olefile.OleFileIO(fp)
+            try:
+                if not ole.exists('WordDocument'):
+                    return ""
+                raw = ole.openstream('WordDocument').read()
+                # Word 97-2003 stores text as UTF-16LE.
+                # The first 768 bytes (384 UTF-16LE chars) are the FIB binary header — skip them.
+                decoded = raw.decode('utf-16-le', errors='replace')[384:]
+                # Keep printable ASCII, common Latin/Unicode letters and whitespace
+                cleaned = _re.sub(r'[^\x20-\x7E\x09\x0A\x0D\u00A0-\u2FFF]', ' ', decoded)
+                cleaned = _re.sub(r'  +', ' ', cleaned)
+                # Split on control chars / null bytes and keep lines with real content
+                raw_lines = _re.split(r'[\x00\x01-\x08\x0B\x0C\x0E-\x1F\r\n]+', cleaned)
+                lines = []
+                for l in raw_lines:
+                    l = l.strip()
+                    if len(l) < 4:
+                        continue
+                    # Filter out binary-header remnants: lines where <40% chars are alpha/space
+                    alpha_ratio = sum(c.isalpha() or c.isspace() for c in l) / len(l)
+                    if alpha_ratio < 0.40:
+                        continue
+                    # Strip any leading garbage tokens: sequences of ? and space-separated single chars
+                    # e.g. "n 0 h ? ? ? NAGARAJU" → "NAGARAJU"
+                    l = _re.sub(r'^([\?\s\x00-\x1F\d]{1,3}\s+){2,}', '', l).strip()
+                    if len(l) < 4:
+                        continue
+                    lines.append(l)
+                # Deduplicate consecutive identical lines
+                deduped = []
+                prev = None
+                for line in lines:
+                    if line != prev:
+                        deduped.append(line)
+                    prev = line
+                return "\n".join(deduped)
+            finally:
+                ole.close()
+
+        logger.info(f"--- Attempting OLE binary stream extraction for: {Path(file_path).name} ---")
+        result = await loop.run_in_executor(None, _extract_from_ole_stream, file_path)
         processing_time = time.perf_counter() - start_time
+        metadata["processing_tool"] = "olefile_doc_extractor"
         metadata["processing_time"] = processing_time
-        return "", metadata
+        if result and result.strip():
+            logger.info(f"=== OLE EXTRACTOR COMPLETED FOR FILE: {Path(file_path).name} - {len(result)} chars IN {processing_time:.2f} seconds ===")
+            return result, metadata
+        else:
+            logger.warning(f"=== OLE extractor returned empty text for: {Path(file_path).name} ===")
+    except ImportError:
+        logger.warning("=== olefile not installed; skipping OLE binary extraction step ===")
+    except Exception as ole_err:
+        logger.error(f"=== OLE binary extractor failed for {Path(file_path).name}: {ole_err} ===")
+
+    processing_time = time.perf_counter() - start_time
+    metadata["processing_time"] = processing_time
+    return "", metadata
+

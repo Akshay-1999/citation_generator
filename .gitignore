@@ -45,3 +45,5 @@ logs/
 
 # SSL Certificates and Keys
 cert_keys/
+
+converted_resumes/

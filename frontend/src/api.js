@@ -186,5 +186,25 @@ export const api = {
     fetchReportResults: async (batchId) => {
         const res = await fetch(`${BASE_URL}/folder/get_report_results/${batchId}`, { credentials: 'include' });
         return handleResponse(res, 'Failed to fetch report results');
+    },
+
+    convertResume: async (originalFile, candidateName) => {
+        const res = await fetch(`${BASE_URL}/conversion/api/convert`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ original_file: originalFile, candidate_name: candidateName }),
+        });
+        return handleResponse(res, 'Failed to convert resume');
+    },
+
+    rejectResume: async (originalFile, feedback) => {
+        const res = await fetch(`${BASE_URL}/conversion/api/reject`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ original_file: originalFile, feedback }),
+        });
+        return handleResponse(res, 'Failed to submit rejection feedback');
     }
 };

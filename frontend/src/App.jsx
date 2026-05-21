@@ -7,6 +7,7 @@ import FileSelectionModal from './components/FileSelectionModal';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import ScreeningDashboard from './components/ScreeningDashboard';
+import PdfPreviewModal from './components/PdfPreviewModal';
 import { api, BASE_URL } from './api';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import './App.css';
@@ -18,7 +19,8 @@ function Dashboard({
   setIsFileSelectionModalOpen, selectedFiles, handleFileSelect, handleUnselectFile,
   handleRemoveFile, handleProcessFolder, onLogout, uploadProgress, setUploadProgress,
   view, setView, screeningResults, handleConvertToEstuate, onViewResults, onDownload,
-  pastReports, activeReportId, onSelectReport, onDeleteReport
+  pastReports, activeReportId, onSelectReport, onDeleteReport,
+  setPreviewPdf
 }) {
   return (
     <div className="app-container">
@@ -160,6 +162,7 @@ function App() {
   const [downloadReportUrl, setDownloadReportUrl] = useState(null);
   const [pastReports, setPastReports] = useState([]);
   const [activeReportId, setActiveReportId] = useState(null);
+  const [previewPdf, setPreviewPdf] = useState(null);
 
   const fetchReports = async () => {
     try {
@@ -170,12 +173,45 @@ function App() {
     }
   };
 
-  const handleConvertToEstuate = (candidate) => {
-    setUploadProgress({ active: true, message: `Converting ${candidate.name}...`, status: 'uploading' });
-    setTimeout(() => {
+  const handleConvertToEstuate = async (candidate) => {
+    const originalFile = candidate.original_file || (candidate.name ? `${candidate.name.replace(/\s+/g, '_')}_resume.pdf` : 'resume.pdf');
+    const candidateName = candidate.name || 'Unknown Candidate';
+    setUploadProgress({ active: true, message: `Converting ${candidateName}...`, status: 'uploading' });
+    try {
+      const data = await api.convertResume(originalFile, candidateName);
       setUploadProgress({ active: true, message: 'Conversion Complete', status: 'success' });
-      setTimeout(() => setUploadProgress({ active: false, message: '', status: 'uploading' }), 2000);
-    }, 1500);
+      const newResume = {
+        candidateName: candidateName,
+        originalFile: originalFile,
+        convertedFile: data.converted_file,
+        downloadUrl: data.download_url,
+        templateName: 'Estuate Format',
+        date: new Date().toLocaleDateString(),
+        isMock: false
+      };
+      
+      setTimeout(() => {
+        setUploadProgress({ active: false, message: '', status: 'uploading' });
+        setPreviewPdf(newResume);
+      }, 1000);
+    } catch (err) {
+      console.warn('Backend conversion failed (likely on hold). Falling back to mock preview mode:', err);
+      setUploadProgress({ active: true, message: 'Conversion Complete (Preview Mode)', status: 'success' });
+      const mockResume = {
+        candidateName: candidateName,
+        originalFile: originalFile,
+        convertedFile: 'mock_preview.pdf',
+        downloadUrl: '#',
+        templateName: 'Estuate Format (Preview Mode)',
+        date: new Date().toLocaleDateString(),
+        isMock: true
+      };
+      
+      setTimeout(() => {
+        setUploadProgress({ active: false, message: '', status: 'uploading' });
+        setPreviewPdf(mockResume);
+      }, 1000);
+    }
   };
   const [isTyping, setIsTyping] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -508,6 +544,7 @@ function App() {
               activeReportId={activeReportId}
               onSelectReport={handleSelectReport}
               onDeleteReport={handleDeleteReport}
+              setPreviewPdf={setPreviewPdf}
               onDownload={() => {
                 if (downloadReportUrl) {
                   const fullUrl = `${BASE_URL}${downloadReportUrl}`;
@@ -522,7 +559,6 @@ function App() {
                 }
               }}
               onViewResults={() => {
-                // If there are no results, we still show the dashboard (empty or mock if we wanted for testing)
                 setView('dashboard');
               }}
             />
@@ -531,6 +567,26 @@ function App() {
 
         <Route path="*" element={<Navigate to={authStatus ? "/" : "/login"} replace />} />
       </Routes>
+      
+      <PdfPreviewModal 
+        isOpen={!!previewPdf} 
+        onClose={() => setPreviewPdf(null)}
+        resume={previewPdf}
+        onDownload={(r) => {
+          if (r && r.downloadUrl) {
+            const fullUrl = `${BASE_URL}${r.downloadUrl}`;
+            const link = document.createElement('a');
+            link.href = fullUrl;
+            link.setAttribute('download', '');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            alert('Download link not available.');
+          }
+          setPreviewPdf(null);
+        }}
+      />
     </Router>
   );
 }
