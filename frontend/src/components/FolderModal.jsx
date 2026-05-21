@@ -9,7 +9,8 @@ const FolderModal = ({ isOpen, onClose, onProcess }) => {
 
     const handleFolderSelect = (e) => {
         const files = Array.from(e.target.files).filter(f => 
-            ['.pdf', '.doc', '.docx'].some(ext => f.name.toLowerCase().endsWith(ext))
+            ['.pdf', '.doc', '.docx'].some(ext => f.name.toLowerCase().endsWith(ext)) &&
+            !f.name.startsWith('~$')  // exclude Word lock/temp files
         );
         setSelectedFiles(files);
     };

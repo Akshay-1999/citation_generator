@@ -256,6 +256,12 @@ async def process_folder(
 
     for uploaded_file in files:
         file_name = os.path.basename(uploaded_file.filename)
+
+        # Skip Microsoft Word lock/temp files (e.g. ~$tuate_Kundanam.doc)
+        if file_name.startswith('~$'):
+            logger.info(f"--- Skipping Word lock file: {file_name} ---")
+            continue
+
         extension = await get_file_extension(file_name)
         if extension is None: continue
         file_to_map.append(file_name)
