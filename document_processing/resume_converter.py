@@ -309,12 +309,15 @@ RESUME TEXT:
 TARGET TEMPLATE SECTIONS AND THEIR FIELDS:
 {field_map_str}
 
-Rules:
-1. Extract ALL content EXACTLY as written — do not add, change or remove anything
-2. Map content to the closest matching template section name
-3. For "role": check top of resume first, then experience/projects/industrial exposure. NEVER leave empty.
-4. For each section, use the field list above to know exactly what sub-fields to extract.
-5. Return ONLY this JSON:
+CRITICAL RULES:
+1. STRICT TEMPLATE COMPLIANCE: You MUST ONLY output the sections listed in TARGET TEMPLATE SECTIONS. Do NOT add any extra sections (e.g., if "Hobbies" or "Languages Known" are in the resume but not the template, IGNORE them completely).
+2. EXACT FIELDS ONLY: Inside each section, ONLY fill in the sub-fields listed above. Do not invent new fields.
+3. NO EXTRA CONTENT: Do not add any text that isn't required by the template structure. Drop any personal details, declarations, or extra fluff that doesn't fit into the template's designated sections.
+4. CONTENT FIDELITY & NO SUMMARIZATION: You MUST NOT summarize or shorten the text. Extract the actual bullet points and descriptions exactly as written in the resume in FULL DETAIL. It is critical that no information is lost for the sections you extract.
+5. EXPERIENCE TO PROJECTS MAPPING: If the template has "Project Details" but no "Experience" section, you MUST map all of the candidate's Professional Experience / Employment History into the "Project Details" section. Put all of their job bullet points into the "Responsibilities" field or the entry's `bullets` array. Do not leave out any job history.
+6. "role": Check the top of the resume first. NEVER leave empty.
+7. PROJECT DETAILS: If the template says "Project name and do not mention company name", you MUST strip out any company/client names from the project title.
+8. Return ONLY this JSON format:
 
 {{
   "personal_info": {{
@@ -430,8 +433,14 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
 
     LINE_GAP = 4
     header_h = mt
-    if logo_text:
+    logo_img_path = Path("templates/estuate_logo.png")
+    has_logo_img = logo_img_path.exists()
+    
+    if has_logo_img:
+        header_h += 20 * mm + LINE_GAP
+    elif logo_text:
         header_h += sz_name + LINE_GAP
+        
     header_h += sz_name + LINE_GAP
     if show_role:
         header_h += sz_role + LINE_GAP
@@ -451,7 +460,7 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
     sidebar_w = page_w * sidebar_pct if two_col else 0
     main_w = page_w - sidebar_w
 
-    logo_only_h = mt + (sz_name + LINE_GAP if logo_text else 0) + 8
+    logo_only_h = mt + (20 * mm if has_logo_img else (sz_name + LINE_GAP if logo_text else 0)) + 8
 
     def draw_page(canvas, doc):
         canvas.saveState()
@@ -472,7 +481,14 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
 
         y = page_h - mt
 
-        if logo_text:
+        if has_logo_img:
+            img_w, img_h = 40 * mm, 12 * mm
+            if logo_pos == "left":
+                canvas.drawImage(str(logo_img_path), ml, y - img_h, width=img_w, height=img_h, mask='auto', preserveAspectRatio=True)
+            else:
+                canvas.drawImage(str(logo_img_path), page_w - mr - img_w, y - img_h, width=img_w, height=img_h, mask='auto', preserveAspectRatio=True)
+            y -= (img_h + LINE_GAP)
+        elif logo_text:
             canvas.setFont(font_bold, sz_name - 2)
             canvas.setFillColor(c_heading)
             if logo_pos == "right":
@@ -568,18 +584,18 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
                               leading=leading or (size + 4))
 
     st = {
-        "sh":       S("sh",      font=font_bold,   size=sz_heading, color=c_heading,     before=6, after=3),
-        "sh_side":  S("sh_side", font=font_bold,   size=sz_heading, color=c_sidebar_txt, before=6, after=3),
-        "body":     S("body",    font=font_normal, size=sz_body,    color=c_body,        after=2),
-        "body_s":   S("body_s",  font=font_normal, size=sz_body,    color=c_sidebar_txt, after=2),
-        "bold":     S("bold",    font=font_bold,   size=sz_body,    color=c_body,        after=1),
-        "bold_s":   S("bold_s",  font=font_bold,   size=sz_body,    color=c_sidebar_txt, after=1),
-        "italic":   S("italic",  font=font_italic, size=sz_body - 1, color=c_body,       after=1),
+        "sh":       S("sh",      font=font_bold,   size=sz_heading, color=c_heading,     before=8, after=4),
+        "sh_side":  S("sh_side", font=font_bold,   size=sz_heading, color=c_sidebar_txt, before=8, after=4),
+        "body":     S("body",    font=font_normal, size=sz_body,    color=c_body,        after=3),
+        "body_s":   S("body_s",  font=font_normal, size=sz_body,    color=c_sidebar_txt, after=3),
+        "bold":     S("bold",    font=font_bold,   size=sz_body,    color=c_body,        after=2),
+        "bold_s":   S("bold_s",  font=font_bold,   size=sz_body,    color=c_sidebar_txt, after=2),
+        "italic":   S("italic",  font=font_italic, size=sz_body,    color=c_body,        after=2),
         "bullet":   S("bullet",  font=font_normal, size=sz_body,    color=c_body,        after=1),
         "bullet_s": S("bullet_s", font=font_normal, size=sz_body,   color=c_sidebar_txt, after=1),
     }
-    st["bullet"].leftIndent = 12
-    st["bullet_s"].leftIndent = 12
+    st["bullet"].leftIndent = 10
+    st["bullet_s"].leftIndent = 10
 
     story = [NextPageTemplate("later")]
     all_sections = data.get("sections", [])
@@ -628,6 +644,14 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
 
         elif content.get("entries"):
             template_fields = sections_cfg.get("section_fields", {}).get(title, [])
+            # Deduplicate fields (templates often repeat dummy project blocks)
+            dedup_fields = []
+            seen = set()
+            for f in template_fields:
+                if f.lower() not in seen:
+                    seen.add(f.lower())
+                    dedup_fields.append(f)
+            template_fields = dedup_fields
 
             for entry in content["entries"]:
                 block: list = []
@@ -635,13 +659,19 @@ def build_pdf(data: dict, fmt: dict, output_path: str) -> None:
 
                 heading = entry.get("heading", "")
                 if heading:
-                    block.append(Paragraph(f"<b>{heading}</b>", bo_style))
+                    # If it's a project section, prepend 'Project: ' if it doesn't already have it
+                    if title.lower() in ("project details", "projects") and not heading.lower().startswith("project"):
+                        block.append(Paragraph(f"<b>Project:</b> {heading}", b_style))
+                    else:
+                        block.append(Paragraph(f"<b>{heading}</b>", bo_style))
 
                 subheading = entry.get("subheading", "")
                 location = entry.get("location", "")
                 if subheading:
-                    sub_line = subheading + (f"  |  {location}" if location else "")
-                    block.append(Paragraph(sub_line, st["italic"]))
+                    # Prevent duplicate printing if GPT shoved a metadata field into subheading
+                    if subheading not in metadata.values():
+                        sub_line = subheading + (f"  |  {location}" if location else "")
+                        block.append(Paragraph(sub_line, st["italic"]))
 
                 if template_fields:
                     for field in template_fields:
