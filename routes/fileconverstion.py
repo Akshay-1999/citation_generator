@@ -103,13 +103,24 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
     output_path = converted_dir / output_filename
 
     # ── Step 5: Run conversion (async — awaited directly) ────────────────────
+    import asyncio
+    max_retries = 2
     try:
         from document_processing.resume_converter import run_conversion
-        await run_conversion(
-            str(resume_path),
-            str(TEMPLATE_PDF),
-            str(output_path),
-        )
+        for attempt in range(max_retries + 1):
+            try:
+                await run_conversion(
+                    str(resume_path),
+                    str(TEMPLATE_PDF),
+                    str(output_path),
+                )
+                break  # Success, exit the retry loop
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"=== Conversion attempt {attempt + 1} failed: {e}. Retrying in 2 seconds... ===")
+                    await asyncio.sleep(2)
+                else:
+                    raise  # Re-raise to be caught by the outer try-except
     except FileNotFoundError as exc:
         logger.error(f"=== Conversion failed — file not found: {exc} ===")
         raise HTTPException(status_code=404, detail=str(exc))
@@ -117,8 +128,8 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
         logger.error(f"=== Conversion failed — config error: {exc} ===")
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
-        logger.error(f"=== Conversion failed for {original_file}: {exc} ===", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Conversion failed: {str(exc)}")
+        logger.error(f"=== Conversion failed for {original_file} after {max_retries} retries: {exc} ===", exc_info=True)
+        raise HTTPException(status_code=500, detail="Conversion failed. Please wait for a few minutes and reprocess the file.")
 
     # ── Step 6: Persist to DB ─────────────────────────────────────────────────
     from routes.endpoint.fileconverstionendpoint import write_converted_file_path
