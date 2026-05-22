@@ -195,22 +195,11 @@ function App() {
         setPreviewPdf(newResume);
       }, 1000);
     } catch (err) {
-      console.warn('Backend conversion failed (likely on hold). Falling back to mock preview mode:', err);
-      setUploadProgress({ active: true, message: 'Conversion Complete (Preview Mode)', status: 'success' });
-      const mockResume = {
-        candidateName: candidateName,
-        originalFile: originalFile,
-        convertedFile: 'mock_preview.pdf',
-        downloadUrl: '#',
-        templateName: 'Estuate Format (Preview Mode)',
-        date: new Date().toLocaleDateString(),
-        isMock: true
-      };
+      console.error('Backend conversion failed:', err);
+      setUploadProgress({ active: false, message: '', status: 'uploading' });
       
-      setTimeout(() => {
-        setUploadProgress({ active: false, message: '', status: 'uploading' });
-        setPreviewPdf(mockResume);
-      }, 1000);
+      const errorMessage = err.response?.data?.detail || err.message || "Conversion failed. Please wait for a few minutes and reprocess the file.";
+      alert(errorMessage);
     }
   };
   const [isTyping, setIsTyping] = useState(false);
