@@ -35,7 +35,7 @@ folder_processer_router = APIRouter()
 
 @traceable(run_type="chain", name="Experiance_position_mapping_agent")
 def process_query(query: str):
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
     prompt = ChatPromptTemplate.from_messages([
         ("system", get_jd_analysis_system_prompt()),
         ("human", "{input}")
@@ -106,7 +106,7 @@ async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str)
 async def analyze_jd(jd_text: str) -> Dict[str, Any]:
     """Use LLM to extract position, experience and client from JD."""
     try:
-        client = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        client = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
         prompt = get_jd_analysis_system_prompt()
         messages = [
             {"role": "system", "content": prompt},

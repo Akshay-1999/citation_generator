@@ -52,7 +52,7 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
             return JSONResponse(status_code=500, content={'error': f'Thread error: {str(e)}'})
             
         try:
-            llm = ChatOpenAI(model="gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"))
+            llm = ChatOpenAI(model="gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
             logger.info(f"--- User ID: {user_id} ---")
             agent_instance = RAGAgent(client=llm , user_id=user_id)
             logger.info(f"--- Agent instance: {agent_instance} ---")
