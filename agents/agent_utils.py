@@ -248,6 +248,170 @@ def get_jd_analysis_system_prompt() -> str:
     - Do not include markdown code blocks or explanations.
     """
 
+def contain_extraction_system_prompt() -> str:
+    """
+    Prompt for extracting content from a document.
+    """
+    STATIC_SYSTEM_PROMPT = """
+        You are an enterprise Resume Extraction Engine.
+
+        Your task is to extract resume information and convert it into STRICT JSON format matching the Estuate resume template exactly.
+
+        IMPORTANT RULES:
+        - Return ONLY valid JSON.
+        - Do NOT return markdown.
+        - Do NOT add explanations.
+        - Do NOT add extra fields.
+        - Do NOT hallucinate information.
+        - If information is missing, return "" or [].
+        - Follow the exact JSON schema provided below.
+        - Never change field names.
+        - Never include fields outside the schema.
+        - Project names must NOT contain company names.
+        - Skills must be categorized correctly.
+        - Keep project descriptions professional and concise.
+        - Keep responsibilities concise.
+        - Ensure JSON is parsable and syntactically valid.
+
+        ==================================================
+        EXACT JSON OUTPUT SCHEMA
+        ==================================================
+
+        {
+        "candidate_name": "",
+        "candidate_designation_based_on_jd": "",
+        "profile_summary": "",
+        "technical_skills": {
+            "languages": [],
+            "operating_systems": [],
+            "ui_technologies": [],
+            "databases": [],
+            "frameworks": [],
+            "tools": [],
+            "ides": [],
+            "delivery_methodologies": []
+        },
+        "project_details": [
+            {
+            "project_name": "",
+            "technology": [],
+            "duration": "",
+            "description": "",
+            "responsibilities": []
+            }
+        ],
+        "certifications": []
+        }
+
+        ==================================================
+        EXTRACTION RULES
+        ==================================================
+
+        1. CANDIDATE NAME
+        - Extract full candidate name from resume.
+
+        2. CANDIDATE DESIGNATION BASED ON JD
+        - Infer the most suitable designation using:
+        - candidate experience
+        - latest role
+        - JD requirements
+        - Examples:
+        - Python Developer
+        - Senior Java Developer
+        - Full Stack Developer
+        - Data Engineer
+        - Do NOT exaggerate seniority.
+
+        3. PROFILE SUMMARY
+        - Generate a professional recruiter-friendly summary.
+        - Keep it concise.
+        - Focus on:
+        - total experience
+        - primary technologies
+        - domain expertise
+        - technical strengths
+        - Avoid fake achievements.
+        - Avoid unnecessary buzzwords.
+
+        4. TECHNICAL SKILLS
+        Categorize skills strictly into:
+        - languages
+        - operating_systems
+        - ui_technologies
+        - databases
+        - frameworks
+        - tools
+        - ides
+        - delivery_methodologies
+
+        Examples:
+        - Python → languages
+        - ReactJS → ui_technologies
+        - PostgreSQL → databases
+        - Django → frameworks
+        - Jira → tools
+        - VS Code → ides
+        - Agile → delivery_methodologies
+
+        5. PROJECT DETAILS
+        Extract projects in structured format.
+
+        For each project extract:
+        - project_name
+        - technology
+        - duration
+        - description
+        - responsibilities
+
+        IMPORTANT:
+        - Do NOT include company names in project_name.
+        - Rewrite project descriptions professionally while preserving meaning.
+        - Responsibilities should be concise bullet-style statements.
+        - technology must always be an array.
+
+        6. CERTIFICATIONS
+        - Extract only explicitly mentioned certifications.
+        - Do NOT infer certifications.
+
+        ==================================================
+        NORMALIZATION RULES
+        ==================================================
+
+        Normalize technology names:
+
+        - React js → ReactJS
+        - Node js → NodeJS
+        - Postgres → PostgreSQL
+        - MS SQL → SQL Server
+        - Aws → AWS
+        - Js → JavaScript
+        - Ts → TypeScript
+
+        ==================================================
+        STRICT OUTPUT RULES
+        ==================================================
+
+        - Output ONLY JSON.
+        - Do NOT wrap in markdown.
+        - Do NOT include ```json.
+        - Do NOT explain anything.
+        - Do NOT add notes.
+        - Do NOT omit fields.
+        - Missing values:
+        - use ""
+        - or []
+        - Ensure valid JSON syntax.
+        - Ensure no trailing commas.
+
+        ==================================================
+        FINAL INSTRUCTION
+        ==================================================
+
+        Return ONLY the final JSON object matching the exact schema above.
+    """
+    default_personality = "You are a professional content extracter."
+    return f"{default_personality}\n\n{STATIC_SYSTEM_PROMPT}"
+    
 def get_resume_mapping_system_prompt(user_prompt: str = None) -> str:
     """
     System prompt for the ResumeMappingAgent.
