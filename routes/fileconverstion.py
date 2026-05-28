@@ -143,10 +143,10 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
     from routes.endpoint.fileconverstionendpoint import write_converted_file_path
     
     returned_filename_base = conversion_result["filename_base"]
-    pdf_filename = conversion_result["files"]["pdf_filename"]
+    pdf_filename = conversion_result["files"].get("pdf_filename")
     docx_filename = conversion_result["files"]["docx_filename"]
     
-    pdf_path_str = str(converted_pdf_dir / pdf_filename)
+    pdf_path_str = str(converted_pdf_dir / pdf_filename) if pdf_filename else ""
     docx_path_str = str(converted_docx_dir / docx_filename)
     
     # Store the actual paths in the DB as expected by the new schema
@@ -225,11 +225,12 @@ async def reject_resume(request: RejectRequest, session=Depends(login_required))
     from routes.endpoint.fileconverstionendpoint import write_converted_file_path
     
     returned_filename_base = conversion_result["filename_base"]
-    pdf_filename = conversion_result["files"]["pdf_filename"]
+    pdf_filename = conversion_result["files"].get("pdf_filename")
     docx_filename = conversion_result["files"]["docx_filename"]
     
-    pdf_path_str = str(converted_pdf_dir / pdf_filename)
+    pdf_path_str = str(converted_pdf_dir / pdf_filename) if pdf_filename else ""
     docx_path_str = str(converted_docx_dir / docx_filename)
+
     
     # Store the actual paths in the DB as expected by the new schema (UPSERT handles it)
     await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str)
