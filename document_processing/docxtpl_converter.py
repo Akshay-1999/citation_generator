@@ -124,8 +124,22 @@ def generate_docx_and_pdf(data: dict, template_path: str, pdf_dir: str, docx_dir
     
     logger.info(f"--- Converting DOCX to PDF: {pdf_path} ---")
     try:
-        # docx2pdf is synchronous and uses MS Word COM, which can be blocking.
-        docx2pdf_convert(docx_path, pdf_path)
+        import platform
+        if platform.system() == "Windows":
+            # docx2pdf is synchronous and uses MS Word COM, which can be blocking.
+            docx2pdf_convert(docx_path, pdf_path)
+        else:
+            # Use LibreOffice in headless mode for Linux/macOS
+            import subprocess
+            logger.info("Using LibreOffice for Linux/macOS PDF conversion")
+            process = subprocess.run([
+                "libreoffice", "--headless", "--convert-to", "pdf",
+                "--outdir", pdf_dir, docx_path
+            ], capture_output=True, text=True)
+            
+            if process.returncode != 0:
+                raise Exception(f"LibreOffice conversion failed: {process.stderr}")
+                
         logger.info(f"=== PDF saved: {pdf_path} ===")
     except Exception as e:
         logger.error(f"Failed to convert DOCX to PDF: {e}")
