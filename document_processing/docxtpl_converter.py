@@ -132,16 +132,22 @@ def generate_docx_and_pdf(data: dict, template_path: str, pdf_dir: str, docx_dir
             # Use LibreOffice in headless mode for Linux/macOS
             import subprocess
             import shutil
+            import os
             
             logger.info("Using LibreOffice for Linux/macOS PDF conversion")
             
             # Find the LibreOffice executable (could be 'libreoffice' or 'soffice')
             lo_exec = shutil.which("libreoffice") or shutil.which("soffice") or "/usr/bin/libreoffice"
             
+            # Ensure standard system paths are in the environment so the libreoffice wrapper script can find basic tools like 'dirname'
+            env = os.environ.copy()
+            system_paths = "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
+            env["PATH"] = f"{env.get('PATH', '')}:{system_paths}" if env.get('PATH') else system_paths
+            
             process = subprocess.run([
                 lo_exec, "--headless", "--convert-to", "pdf",
                 "--outdir", pdf_dir, docx_path
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, env=env)
             
             if process.returncode != 0:
                 raise Exception(f"LibreOffice conversion failed: {process.stderr}")
