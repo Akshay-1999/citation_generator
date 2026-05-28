@@ -183,8 +183,12 @@ function App() {
       const newResume = {
         candidateName: candidateName,
         originalFile: originalFile,
-        convertedFile: data.converted_file,
-        downloadUrl: data.download_url,
+        convertedFile: data.converted_file, // For backwards compatibility if needed
+        uuid: data.uuid,
+        pdfDownloadUrl: data.pdf_download_url,
+        docxDownloadUrl: data.docx_download_url,
+        previewUrl: data.preview_url,
+        content: data.content,
         templateName: 'Estuate Format',
         date: new Date().toLocaleDateString(),
         isMock: false
@@ -561,6 +565,7 @@ function App() {
         isOpen={!!previewPdf} 
         onClose={() => setPreviewPdf(null)}
         resume={previewPdf}
+        onUpdate={(updated) => setPreviewPdf(updated)}
         onDownload={(r) => {
           if (r && r.downloadUrl) {
             const fullUrl = `${BASE_URL}${r.downloadUrl}`;

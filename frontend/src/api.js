@@ -206,5 +206,15 @@ export const api = {
             body: JSON.stringify({ original_file: originalFile, feedback }),
         });
         return handleResponse(res, 'Failed to submit rejection feedback');
+    },
+
+    updateAndRegenerate: async (uuid, content) => {
+        const res = await fetch(`${BASE_URL}/conversion/api/update_and_regenerate`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uuid, content }),
+        });
+        return handleResponse(res, 'Failed to update and regenerate resume');
     }
 };

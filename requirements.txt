@@ -38,3 +38,5 @@ reportlab==4.1.0
 langchain-google-genai==2.0.10
 google-genai
 openai>=1.86.0
+docxtpl==0.20.2
+docx2pdf
