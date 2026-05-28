@@ -270,7 +270,7 @@ def contain_extraction_system_prompt() -> str:
         - Project names must NOT contain company names.
         - Skills must be categorized correctly.
         - Keep project descriptions professional and concise.
-        - Keep responsibilities concise.
+        - For project responsibilities: Extract in high detail what the candidate actually did. Summarize their core contributions, enhance the phrasing to be professional and impactful, and output them as a comprehensive list of bullet-point strings.
         - Ensure JSON is parsable and syntactically valid.
 
         ==================================================

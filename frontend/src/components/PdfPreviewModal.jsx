@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
-import { X, Download, FileText, ThumbsDown, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Download, FileText, ThumbsDown, Loader2, Edit, Save, File } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 
-const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
+const PdfPreviewModal = ({ isOpen, onClose, resume, onUpdate }) => {
   const [isRejecting, setIsRejecting] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [submittingReject, setSubmittingReject] = useState(false);
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+
+  // Force re-fetch of iframe to break browser cache when regenerated
+  const [iframeKey, setIframeKey] = useState(0);
+
+  useEffect(() => {
+    if (resume?.content) {
+      setEditContent(JSON.parse(JSON.stringify(resume.content))); // Deep copy
+    }
+  }, [resume]);
 
   if (!isOpen) return null;
 
@@ -14,21 +28,75 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
     setSubmittingReject(true);
     try {
       if (resume?.isMock) {
-        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 800));
-        alert(`[Preview Mode] Resume rejected!\nFeedback: "${feedback}"\n\n(In production, this feedback is saved to the core.converted_resumes database table, status is updated, and the file is permanently deleted from the folder).`);
+        alert(`[Preview Mode] Resume rejected!\nFeedback: "${feedback}"`);
+        setIsRejecting(false);
+        setFeedback('');
+        onClose();
       } else {
-        await api.rejectResume(resume.originalFile, feedback);
-        alert('Resume conversion rejected. Feedback saved and file deleted.');
+        const rawData = await api.rejectResume(resume.originalFile, feedback);
+        
+        // Map backend snake_case fields to frontend camelCase expectations
+        const newResumeData = {
+          ...resume, // keep original details like candidateName
+          originalFile: resume.originalFile,
+          convertedFile: rawData.converted_file,
+          uuid: rawData.uuid,
+          pdfDownloadUrl: rawData.pdf_download_url,
+          docxDownloadUrl: rawData.docx_download_url,
+          previewUrl: rawData.preview_url,
+          content: rawData.content
+        };
+        
+        // Use onUpdate to pass the new URLs and content back up to parent
+        if (onUpdate) {
+          onUpdate(newResumeData);
+        }
+        
+        setIsRejecting(false);
+        setFeedback('');
+        setIframeKey(prev => prev + 1); // Refresh iframe
+        alert('Resume reprocessed successfully based on feedback!');
       }
-      setIsRejecting(false);
-      setFeedback('');
-      onClose(); // Close the PDF preview modal
     } catch (err) {
       alert('Failed to submit rejection: ' + err.message);
     } finally {
       setSubmittingReject(false);
     }
+  };
+
+  const handleSaveEdit = async () => {
+    setIsSavingEdit(true);
+    try {
+      await api.updateAndRegenerate(resume.uuid, editContent);
+      
+      if (onUpdate) {
+        onUpdate({ ...resume, content: editContent });
+      }
+      
+      setIsEditing(false);
+      setIframeKey(prev => prev + 1); // Refresh iframe
+      alert('Resume updated and regenerated successfully!');
+    } catch (err) {
+      alert('Failed to update resume: ' + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const downloadFile = (formatUrl) => {
+    if (formatUrl) {
+      const fullUrl = `${BASE_URL}${formatUrl}`;
+      const link = document.createElement('a');
+      link.href = fullUrl;
+      link.setAttribute('download', '');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert('Download link not available.');
+    }
+    setShowDownloadMenu(false);
   };
 
   return (
@@ -59,6 +127,33 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
           </div>
           
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            
+            {/* Edit / Save Button */}
+            {!isEditing ? (
+              <button 
+                onClick={() => setIsEditing(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                  background: '#f0f0f0', color: '#333', border: '1px solid #ccc', borderRadius: '6px',
+                  cursor: 'pointer', fontWeight: 600, fontSize: '14px', transition: 'all 0.2s ease'
+                }}
+              >
+                <Edit size={16} /> Edit Data
+              </button>
+            ) : (
+              <button 
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                  background: '#28a745', color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: isSavingEdit ? 0.6 : 1
+                }}
+              >
+                {isSavingEdit ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Save Changes
+              </button>
+            )}
+
             {/* Reject Button */}
             <button 
               onClick={() => setIsRejecting(true)}
@@ -67,29 +162,48 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
                 background: '#e0e0e0', color: '#333', border: 'none', borderRadius: '6px',
                 cursor: 'pointer', fontWeight: 600, fontSize: '14px', transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#d2d2d2';
-                e.currentTarget.style.color = '#C41230';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#e0e0e0';
-                e.currentTarget.style.color = '#333';
-              }}
             >
               <ThumbsDown size={16} /> Reject
             </button>
 
-            {/* Download Button */}
-            <button 
-              onClick={() => onDownload(resume)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
-                background: '#C41230', color: 'white', border: 'none', borderRadius: '6px',
-                cursor: 'pointer', fontWeight: 600, fontSize: '14px', boxShadow: '0 2px 4px rgba(196,18,48,0.3)'
-              }}
-            >
-              <Download size={16} /> Download PDF
-            </button>
+            {/* Download Button with Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                  background: '#C41230', color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: 'pointer', fontWeight: 600, fontSize: '14px', boxShadow: '0 2px 4px rgba(196,18,48,0.3)'
+                }}
+              >
+                <Download size={16} /> Download
+              </button>
+              
+              {showDownloadMenu && (
+                <div style={{
+                  position: 'absolute', top: '110%', right: 0, background: 'white',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderRadius: '6px', border: '1px solid #eee',
+                  zIndex: 10, minWidth: '150px', overflow: 'hidden'
+                }}>
+                  <div 
+                    onClick={() => downloadFile(resume?.pdfDownloadUrl)}
+                    style={{ padding: '0.75rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '14px', borderBottom: '1px solid #f0f0f0' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f9f9f9'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <FileText size={16} color="#C41230"/> PDF Format
+                  </div>
+                  <div 
+                    onClick={() => downloadFile(resume?.docxDownloadUrl)}
+                    style={{ padding: '0.75rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '14px' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f9f9f9'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <File size={16} color="#2b579a"/> DOCX Format
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Close Button */}
             <button 
@@ -105,61 +219,37 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
           </div>
         </div>
         
-        {/* PDF Viewer and Overlay feedback box */}
+        {/* Editor or PDF Viewer */}
         <div style={{ flex: 1, background: '#e5e7eb', position: 'relative', overflowY: 'auto' }}>
-          {resume && resume.isMock ? (
-            /* Premium Mock HTML Resume Preview */
-            <div style={{
-              position: 'absolute', top: '2rem', bottom: '2rem', left: '50%', transform: 'translateX(-50%)',
-              width: '80%', maxWidth: '800px', background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              padding: '3rem', overflowY: 'auto', minHeight: '600px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #C41230', paddingBottom: '1rem', marginBottom: '2rem' }}>
+          
+          {isEditing && editContent ? (
+            <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto', background: 'white', minHeight: '100%' }}>
+              <h2 style={{marginTop: 0}}>Edit Resume Content</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <h1 style={{ fontSize: '24px', margin: '0 0 0.5rem 0', color: '#333', fontWeight: 700 }}>{resume?.candidateName || 'John Doe'}</h1>
-                  <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>Software Engineer | React & Python</p>
+                  <label style={{fontWeight: 'bold'}}>Candidate Name</label>
+                  <input type="text" value={editContent.candidate_name || ''} 
+                    onChange={e => setEditContent({...editContent, candidate_name: e.target.value})}
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ 
-                    background: '#FFEBEF', color: '#C41230', padding: '0.25rem 0.75rem', 
-                    borderRadius: '20px', fontSize: '11px', fontWeight: 600, border: '1px solid #FFD1DA' 
-                  }}>
-                    PREVIEW MODE
-                  </span>
+                <div>
+                  <label style={{fontWeight: 'bold'}}>Designation</label>
+                  <input type="text" value={editContent.candidate_designation_based_on_jd || ''} 
+                    onChange={e => setEditContent({...editContent, candidate_designation_based_on_jd: e.target.value})}
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
                 </div>
-              </div>
-              
-              <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: '#333', fontWeight: 600 }}>Profile Summary</h3>
-              <p style={{ color: '#555', lineHeight: 1.6, fontSize: '14px', marginBottom: '2rem' }}>
-                Experienced software engineer with a strong background in developing scalable web applications. 
-                Proficient in full-stack development using modern technologies. Proven track record of delivering 
-                high-quality solutions within tight deadlines.
-              </p>
-              
-              <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: '#333', fontWeight: 600 }}>Technical Skills</h3>
-              <ul style={{ color: '#555', lineHeight: 1.6, fontSize: '14px', marginBottom: '2rem', columns: 2 }}>
-                <li>Frontend: React, Vue, HTML, CSS</li>
-                <li>Backend: Node.js, Python, Java</li>
-                <li>Database: PostgreSQL, MongoDB</li>
-                <li>DevOps: Docker, AWS, CI/CD</li>
-              </ul>
-
-              <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: '#333', fontWeight: 600 }}>Professional Experience</h3>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#333', fontSize: '14px' }}>
-                  <span>Senior Software Engineer - Tech Solutions Inc.</span>
-                  <span>2022 - Present</span>
+                <div>
+                  <label style={{fontWeight: 'bold'}}>Profile Summary</label>
+                  <textarea value={editContent.profile_summary || ''} 
+                    onChange={e => setEditContent({...editContent, profile_summary: e.target.value})}
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '100px', fontFamily: 'inherit' }} />
                 </div>
-                <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '13px', fontStyle: 'italic' }}>Led frontend development team and improved application load times by 40%.</p>
-              </div>
-              
-              <div style={{ textAlign: 'center', marginTop: '4rem', color: '#aaa', fontSize: '12px' }}>
-                <p>-- This is a preview of the converted Estuate Format (Mock Data) --</p>
               </div>
             </div>
-          ) : resume && resume.convertedFile ? (
+          ) : resume && resume.previewUrl ? (
             <iframe
-              src={`${BASE_URL}/conversion/api/preview/${resume.convertedFile}`}
+              key={iframeKey}
+              src={`${BASE_URL}${resume.previewUrl}?t=${iframeKey}`}
               title="PDF Preview"
               style={{ width: '100%', height: '100%', border: 'none', background: 'white' }}
             />
@@ -171,11 +261,12 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
 
           {/* Rejection Feedback Modal/Popup */}
           {isRejecting && (
-            <div style={{
+             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex',
               alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(3px)'
             }}>
+              {/* Omitted rejection modal code for brevity, same as before */}
               <div style={{
                 background: 'white', padding: '2rem', borderRadius: '12px',
                 width: '90%', maxWidth: '450px', display: 'flex', flexDirection: 'column',
@@ -184,49 +275,16 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onDownload }) => {
                 <h3 style={{ margin: 0, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem', fontWeight: 600 }}>
                   <ThumbsDown size={20} color="#C41230" /> Reject Converted Resume
                 </h3>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', lineHeight: '1.4' }}>
-                  Please provide feedback on why this resume is being rejected. This feedback will be saved in the database, and the generated file will be permanently deleted from the folder.
-                </p>
                 <textarea
-                  placeholder="Provide details about the issue (e.g. alignment incorrect, layout issues, missing sections, formatting error...)"
+                  placeholder="Provide feedback..."
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  disabled={submittingReject}
-                  style={{
-                    width: '100%', height: '120px', borderRadius: '8px', padding: '0.75rem',
-                    border: '1px solid #ccc', fontSize: '0.9rem', outline: 'none', resize: 'none',
-                    fontFamily: 'inherit'
-                  }}
+                  style={{ width: '100%', height: '120px', borderRadius: '8px', padding: '0.75rem', border: '1px solid #ccc' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <button
-                    onClick={() => {
-                      setIsRejecting(false);
-                      setFeedback('');
-                    }}
-                    disabled={submittingReject}
-                    style={{
-                      padding: '0.5rem 1rem', background: '#f0f0f0', border: 'none',
-                      borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
-                      color: '#333'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRejectSubmit}
-                    disabled={submittingReject || !feedback.trim()}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
-                      background: '#C41230', color: 'white', border: 'none', borderRadius: '6px',
-                      cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (submittingReject || !feedback.trim()) ? 0.6 : 1
-                    }}
-                  >
-                    {submittingReject ? (
-                      <>
-                        <Loader2 className="animate-spin" size={16} /> Submitting...
-                      </>
-                    ) : 'Submit Rejection'}
+                  <button onClick={() => { setIsRejecting(false); setFeedback(''); }} disabled={submittingReject} style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: '1px solid #ccc', background: 'transparent', cursor: submittingReject ? 'not-allowed' : 'pointer', fontWeight: 500 }}>Cancel</button>
+                  <button onClick={handleRejectSubmit} disabled={submittingReject} style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: 'none', background: '#C41230', color: 'white', cursor: submittingReject ? 'not-allowed' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {submittingReject ? <><Loader2 size={16} className="spinner-icon" /> Reprocessing...</> : 'Submit Rejection'}
                   </button>
                 </div>
               </div>

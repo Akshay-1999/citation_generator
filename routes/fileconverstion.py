@@ -15,15 +15,16 @@ fileconversionrouter = APIRouter()
 # ── Directory setup ───────────────────────────────────────────────────────────
 
 base_dir = Path(__file__).resolve().parent.parent
-converted_dir = base_dir / "converted_resumes"
+converted_pdf_dir = base_dir / "converted_resumes"/"converted_pdf"
+converted_docx_dir = base_dir / "converted_resumes"/"converted_docx"
 uploaded_dir = base_dir / "uploaded_files"
 templates_dir = base_dir / "templates"
 
-for _d in (converted_dir, uploaded_dir, templates_dir):
+for _d in (converted_pdf_dir,converted_docx_dir, uploaded_dir, templates_dir):
     _d.mkdir(parents=True, exist_ok=True)
 
-# Fixed company template — place the PDF at templates/estuate_template.pdf
-TEMPLATE_PDF = templates_dir / "estuate_template.pdf"
+# Fixed company template — place the DOCX at templates/Estuate_Template_main.docx
+TEMPLATE_DOCX = templates_dir / "Estuate_Template_main.docx"
 
 
 # ── Pydantic request models ───────────────────────────────────────────────────
@@ -69,12 +70,18 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
     cached = await check_converted_status(user_id, original_file)
     if cached:
         # cached holds the converted file path; extract just the filename for the URL
-        cached_filename = Path(cached).name
-        logger.info(f"--- Cache hit: returning {cached_filename} ---")
+        cached_filename_pdf = Path(cached["pdf_file_path"]).name
+        cached_filename_docx = Path(cached["docx_file_path"]).name
+        filename_base = Path(cached["pdf_file_path"]).stem
+        logger.info(f"--- Cache hit: returning {cached_filename_pdf} and {cached_filename_docx} ---")
         return {
             "message": "Resume already converted (cached).",
-            "converted_file": cached_filename,
-            "download_url": f"/conversion/api/download/{cached_filename}",
+            "converted_pdf_file_path": cached_filename_pdf,
+            "converted_docx_file_path": cached_filename_docx,
+            "uuid": filename_base,
+            "pdf_download_url": f"/conversion/api/download/{filename_base}?format=pdf",
+            "docx_download_url": f"/conversion/api/download/{filename_base}?format=docx",
+            "preview_url": f"/conversion/api/preview/{filename_base}",
         }
 
     # ── Step 2: Resolve source resume ────────────────────────────────────────
@@ -84,35 +91,36 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
         raise HTTPException(
             status_code=404,
             detail=f"Resume file '{original_file}' not found. "
-                   "Please upload the file first via /file/upload.",
+                   "Please upload the file first",
         )
 
     # ── Step 3: Validate template ─────────────────────────────────────────────
-    if not TEMPLATE_PDF.exists():
-        logger.error(f"=== Company template PDF missing: {TEMPLATE_PDF} ===")
+    if not TEMPLATE_DOCX.exists():
+        logger.error(f"=== Company template DOCX missing: {TEMPLATE_DOCX} ===")
         raise HTTPException(
             status_code=503,
-            detail="Company template PDF not configured on the server. "
-                   f"Please place the template at: templates/estuate_template.pdf",
+            detail="Company template DOCX not configured on the server. "
+                   f"Please place the template at: templates/Estuate_Template_main.docx",
         )
 
     # ── Step 4: Prepare output path ───────────────────────────────────────────
     # Replace spaces with underscores so the filename is URL-safe
     safe_name = Path(original_file).stem.replace(" ", "_")
-    output_filename = f"Estuate_{safe_name}.pdf"
-    output_path = converted_dir / output_filename
+    filename_base = f"Estuate_{safe_name}"
 
     # ── Step 5: Run conversion (async — awaited directly) ────────────────────
     import asyncio
     max_retries = 2
     try:
-        from document_processing.resume_converter import run_conversion
+        from document_processing.docxtpl_converter import run_docxtpl_conversion
         for attempt in range(max_retries + 1):
             try:
-                await run_conversion(
+                conversion_result = await run_docxtpl_conversion(
                     str(resume_path),
-                    str(TEMPLATE_PDF),
-                    str(output_path),
+                    str(TEMPLATE_DOCX),
+                    str(converted_pdf_dir),
+                    str(converted_docx_dir),
+                    filename_base
                 )
                 break  # Success, exit the retry loop
             except Exception as e:
@@ -133,13 +141,26 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
 
     # ── Step 6: Persist to DB ─────────────────────────────────────────────────
     from routes.endpoint.fileconverstionendpoint import write_converted_file_path
-    await write_converted_file_path(user_id, original_file, str(output_path))
+    
+    returned_filename_base = conversion_result["filename_base"]
+    pdf_filename = conversion_result["files"]["pdf_filename"]
+    docx_filename = conversion_result["files"]["docx_filename"]
+    
+    pdf_path_str = str(converted_pdf_dir / pdf_filename)
+    docx_path_str = str(converted_docx_dir / docx_filename)
+    
+    # Store the actual paths in the DB as expected by the new schema
+    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str)
 
-    logger.info(f"=== Conversion complete: {output_filename} ===")
+    logger.info(f"=== Conversion complete: {returned_filename_base} ===")
     return {
         "message": "Resume converted successfully.",
-        "converted_file": output_filename,
-        "download_url": f"/conversion/api/download/{output_filename}",
+        "converted_file": pdf_filename,
+        "uuid": returned_filename_base, # We keep 'uuid' key for frontend compatibility
+        "pdf_download_url": f"/conversion/api/download/{returned_filename_base}?format=pdf",
+        "docx_download_url": f"/conversion/api/download/{returned_filename_base}?format=docx",
+        "preview_url": f"/conversion/api/preview/{returned_filename_base}",
+        "content": conversion_result["content"]
     }
 
 
@@ -164,67 +185,163 @@ async def reject_resume(request: RejectRequest, session=Depends(login_required))
     logger.info(f"=== Reject request: user={user_id}, file={original_file} ===")
 
     from routes.endpoint.fileconverstionendpoint import write_rejected_file_path
-    converted_file_path = await write_rejected_file_path(user_id, original_file, feedback)
+    converted_paths = await write_rejected_file_path(user_id, original_file, feedback)
 
-    if converted_file_path:
-        try:
-            file_to_delete = Path(converted_file_path)
-            if file_to_delete.exists():
-                file_to_delete.unlink()
-                logger.info(f"--- Deleted rejected file from disk: {converted_file_path} ---")
-        except Exception as e:
-            logger.error(f"=== Failed to delete rejected file {converted_file_path}: {e} ===")
+    if converted_paths:
+        for key in ["converted_pdf_file_path", "converted_docx_file_path"]:
+            try:
+                path_str = converted_paths[key]
+                if path_str:
+                    file_to_delete = Path(path_str)
+                    if file_to_delete.exists():
+                        file_to_delete.unlink()
+                        logger.info(f"--- Deleted rejected file from disk: {path_str} ---")
+            except Exception as e:
+                logger.error(f"=== Failed to delete rejected file {path_str}: {e} ===")
+        
+    #k once the file is deleted i want to reprocess the file converstion using the feed back 
+    resume_path = uploaded_dir / original_file
+    if not resume_path.exists():
+        raise HTTPException(status_code=404, detail="Original resume not found to reprocess.")
 
-    return {"message": "Rejection feedback recorded successfully."}
+    safe_name = Path(original_file).stem.replace(" ", "_")
+    filename_base = f"Estuate_{safe_name}"
+
+    from document_processing.docxtpl_converter import run_docxtpl_conversion
+    
+    try:
+        conversion_result = await run_docxtpl_conversion(
+            str(resume_path),
+            str(TEMPLATE_DOCX),
+            str(converted_pdf_dir),
+            str(converted_docx_dir),
+            filename_base,
+            feedback
+        )
+    except Exception as exc:
+        logger.error(f"=== Reprocessing failed: {exc} ===", exc_info=True)
+        raise HTTPException(status_code=500, detail="Reprocessing failed.")
+
+    from routes.endpoint.fileconverstionendpoint import write_converted_file_path
+    
+    returned_filename_base = conversion_result["filename_base"]
+    pdf_filename = conversion_result["files"]["pdf_filename"]
+    docx_filename = conversion_result["files"]["docx_filename"]
+    
+    pdf_path_str = str(converted_pdf_dir / pdf_filename)
+    docx_path_str = str(converted_docx_dir / docx_filename)
+    
+    # Store the actual paths in the DB as expected by the new schema (UPSERT handles it)
+    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str)
+
+    logger.info(f"=== Reprocessing complete: {returned_filename_base} ===")
+    return {
+        "message": "Resume rejected and reprocessed successfully.",
+        "converted_file": pdf_filename,
+        "uuid": returned_filename_base,
+        "pdf_download_url": f"/conversion/api/download/{returned_filename_base}?format=pdf",
+        "docx_download_url": f"/conversion/api/download/{returned_filename_base}?format=docx",
+        "preview_url": f"/conversion/api/preview/{returned_filename_base}",
+        "content": conversion_result["content"]
+    }
 
 
-@fileconversionrouter.get("/download/{filename}")
-def download_converted_resume(filename: str, session=Depends(login_required)):
+class UpdateRequest(BaseModel):
+    uuid: str
+    content: dict
+
+@fileconversionrouter.post("/update_and_regenerate")
+async def update_and_regenerate(request: UpdateRequest, session=Depends(login_required)):
     """
-    Stream a converted resume PDF to the client.
-    Only allows filenames that live inside converted_resumes/ (path traversal guard).
+    Accepts modified JSON data, directly regenerates the DOCX and PDF, 
+    and overwrites the existing ones in the UUID folder.
     """
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Security: strip any path components — only allow a bare filename
-    safe_filename = Path(filename).name
-    file_path = converted_dir / safe_filename
+    filename_base = request.uuid
+    content = request.content
+    
+    if not filename_base:
+        raise HTTPException(status_code=400, detail="UUID is required")
+
+    logger.info(f"=== Regenerating files for UUID: {filename_base} ===")
+    
+    import asyncio
+    from document_processing.docxtpl_converter import generate_docx_and_pdf
+    
+    try:
+        result = await asyncio.to_thread(
+            generate_docx_and_pdf, 
+            content, 
+            str(TEMPLATE_DOCX), 
+            str(converted_pdf_dir), 
+            str(converted_docx_dir),
+            filename_base
+        )
+    except Exception as exc:
+        logger.error(f"=== Regeneration failed for {filename_base}: {exc} ===", exc_info=True)
+        raise HTTPException(status_code=500, detail="Regeneration failed.")
+        
+    return {
+        "message": "Resume regenerated successfully.",
+        "uuid": filename_base,
+        "files": result
+    }
+
+
+@fileconversionrouter.get("/download/{file_uuid}")
+def download_converted_resume(file_uuid: str, format: str = "pdf", session=Depends(login_required)):
+    """
+    Stream a converted resume (PDF or DOCX) to the client.
+    """
+    if session is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Security: strip any path components
+    safe_uuid = Path(file_uuid).name
+
+    if format.lower() == "docx":
+        filename = f"{safe_uuid}.docx"
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        file_path = converted_docx_dir / filename
+    else:
+        filename = f"{safe_uuid}.pdf"
+        media_type = "application/pdf"
+        file_path = converted_pdf_dir / filename
 
     if not file_path.exists() or not file_path.is_file():
-        logger.warning(f"--- Download requested for missing file: {safe_filename} ---")
+        logger.warning(f"--- Download requested for missing file: {filename} ---")
         raise HTTPException(status_code=404, detail="Converted file not found.")
 
-    logger.info(f"--- Serving download: {safe_filename} ---")
+    logger.info(f"--- Serving download: {filename} ---")
     return FileResponse(
         path=str(file_path),
-        media_type="application/pdf",
-        filename=safe_filename,
+        media_type=media_type,
+        filename=filename,
     )
 
 
-@fileconversionrouter.get("/preview/{filename}")
-def preview_converted_resume(filename: str, session=Depends(login_required)):
+@fileconversionrouter.get("/preview/{file_uuid}")
+def preview_converted_resume(file_uuid: str, session=Depends(login_required)):
     """
     Serve a converted resume PDF inline for the preview modal iframe.
-    Uses Content-Disposition: inline so the browser renders it in-place
-    rather than prompting a file download.
     """
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Security: strip any path components — only allow a bare filename
-    safe_filename = Path(filename).name
-    file_path = converted_dir / safe_filename
+    safe_uuid = Path(file_uuid).name
+    filename = f"{safe_uuid}.pdf"
+    file_path = converted_pdf_dir / filename
 
     if not file_path.exists() or not file_path.is_file():
-        logger.warning(f"--- Preview requested for missing file: {safe_filename} ---")
-        raise HTTPException(status_code=404, detail="Converted file not found.")
+        logger.warning(f"--- Preview requested for missing file: {filename} ---")
+        raise HTTPException(status_code=404, detail="Converted PDF file not found. It may not have generated successfully.")
 
-    logger.info(f"--- Serving inline preview: {safe_filename} ---")
+    logger.info(f"--- Serving inline preview: {filename} ---")
     return FileResponse(
         path=str(file_path),
         media_type="application/pdf",
-        filename=safe_filename,
-        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+        filename=filename,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
