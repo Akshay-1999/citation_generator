@@ -132,7 +132,6 @@ def generate_docx_and_pdf(data: dict, template_path: str, pdf_dir: str, docx_dir
             # Use LibreOffice in headless mode for Linux/macOS
             import subprocess
             import shutil
-            import os
             
             logger.info("Using LibreOffice for Linux/macOS PDF conversion")
             
