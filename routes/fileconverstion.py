@@ -17,10 +17,11 @@ fileconversionrouter = APIRouter()
 base_dir = Path(__file__).resolve().parent.parent
 converted_pdf_dir = base_dir / "converted_resumes"/"converted_pdf"
 converted_docx_dir = base_dir / "converted_resumes"/"converted_docx"
+converted_json_dir = base_dir / "converted_resumes"/"converted_json"
 uploaded_dir = base_dir / "uploaded_files"
 templates_dir = base_dir / "templates"
 
-for _d in (converted_pdf_dir,converted_docx_dir, uploaded_dir, templates_dir):
+for _d in (converted_pdf_dir,converted_docx_dir, converted_json_dir, uploaded_dir, templates_dir):
     _d.mkdir(parents=True, exist_ok=True)
 
 # Fixed company template — place the DOCX at templates/Estuate_Template_main.docx
@@ -40,7 +41,6 @@ class RejectRequest(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
-
 @fileconversionrouter.post("/convert")
 async def convert_resume(request: ConvertRequest, session=Depends(login_required)):
     """
@@ -74,6 +74,19 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
         cached_filename_docx = Path(cached["docx_file_path"]).name
         filename_base = Path(cached["pdf_file_path"]).stem
         logger.info(f"--- Cache hit: returning {cached_filename_pdf} and {cached_filename_docx} ---")
+        
+        import json
+        content_data = None
+        json_path_str = cached.get("converted_json_file_path")
+        if json_path_str:
+            json_path = Path(json_path_str)
+            if json_path.exists():
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        content_data = json.load(f)
+                except Exception as e:
+                    logger.error(f"Error loading cached JSON from {json_path}: {e}")
+
         return {
             "message": "Resume already converted (cached).",
             "converted_pdf_file_path": cached_filename_pdf,
@@ -82,6 +95,7 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
             "pdf_download_url": f"/conversion/api/download/{filename_base}?format=pdf",
             "docx_download_url": f"/conversion/api/download/{filename_base}?format=docx",
             "preview_url": f"/conversion/api/preview/{filename_base}",
+            "content": content_data
         }
 
     # ── Step 2: Resolve source resume ────────────────────────────────────────
@@ -149,8 +163,19 @@ async def convert_resume(request: ConvertRequest, session=Depends(login_required
     pdf_path_str = str(converted_pdf_dir / pdf_filename) if pdf_filename else ""
     docx_path_str = str(converted_docx_dir / docx_filename)
     
+    # Save the JSON content to disk and get its path
+    import json
+    json_path = converted_json_dir / f"{returned_filename_base}.json"
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(conversion_result.get("content", {}), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save JSON content for {returned_filename_base}: {e}")
+        
+    json_path_str = str(json_path)
+
     # Store the actual paths in the DB as expected by the new schema
-    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str)
+    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str, json_path_str)
 
     logger.info(f"=== Conversion complete: {returned_filename_base} ===")
     return {
@@ -231,9 +256,19 @@ async def reject_resume(request: RejectRequest, session=Depends(login_required))
     pdf_path_str = str(converted_pdf_dir / pdf_filename) if pdf_filename else ""
     docx_path_str = str(converted_docx_dir / docx_filename)
 
-    
+    # Save the JSON content to disk and get its path
+    import json
+    json_path = converted_json_dir / f"{returned_filename_base}.json"
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(conversion_result.get("content", {}), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save JSON content for {returned_filename_base}: {e}")
+        
+    json_path_str = str(json_path)
+
     # Store the actual paths in the DB as expected by the new schema (UPSERT handles it)
-    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str)
+    await write_converted_file_path(user_id, original_file, pdf_path_str, docx_path_str, json_path_str)
 
     logger.info(f"=== Reprocessing complete: {returned_filename_base} ===")
     return {
@@ -269,11 +304,11 @@ async def update_and_regenerate(request: UpdateRequest, session=Depends(login_re
     logger.info(f"=== Regenerating files for UUID: {filename_base} ===")
     
     import asyncio
-    from document_processing.docxtpl_converter import generate_docx_and_pdf
+    from document_processing.docxtpl_converter import generate_docx_and_pdf_json_file
     
     try:
         result = await asyncio.to_thread(
-            generate_docx_and_pdf, 
+            generate_docx_and_pdf_json_file, 
             content, 
             str(TEMPLATE_DOCX), 
             str(converted_pdf_dir), 

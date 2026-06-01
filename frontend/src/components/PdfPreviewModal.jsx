@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, FileText, ThumbsDown, Loader2, Edit, Save, File } from 'lucide-react';
+import { X, Download, FileText, ThumbsDown, Loader2, Edit, Save, File, Plus, Trash, ChevronDown, ChevronRight } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 
 const PdfPreviewModal = ({ isOpen, onClose, resume, onUpdate }) => {
@@ -223,27 +223,169 @@ const PdfPreviewModal = ({ isOpen, onClose, resume, onUpdate }) => {
         <div style={{ flex: 1, background: '#e5e7eb', position: 'relative', overflowY: 'auto' }}>
           
           {isEditing && editContent ? (
-            <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto', background: 'white', minHeight: '100%' }}>
-              <h2 style={{marginTop: 0}}>Edit Resume Content</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{fontWeight: 'bold'}}>Candidate Name</label>
-                  <input type="text" value={editContent.candidate_name || ''} 
-                    onChange={e => setEditContent({...editContent, candidate_name: e.target.value})}
-                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
+            <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto', background: 'white', minHeight: '100%', paddingBottom: '4rem' }}>
+              <h2 style={{marginTop: 0, marginBottom: '2rem', borderBottom: '2px solid #C41230', paddingBottom: '0.5rem'}}>Edit Resume Content</h2>
+              
+              {/* BLOCK 1: Basic Information */}
+              <div style={{ marginBottom: '2rem', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1.5rem' }}>
+                <h3 style={{ marginTop: 0, color: '#C41230' }}>1. Basic Information</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem'}}>Candidate Name</label>
+                    <input type="text" value={editContent.candidate_name || ''} 
+                      onChange={e => setEditContent({...editContent, candidate_name: e.target.value})}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
+                  </div>
+                  <div>
+                    <label style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem'}}>Designation</label>
+                    <input type="text" value={editContent.candidate_designation_based_on_jd || ''} 
+                      onChange={e => setEditContent({...editContent, candidate_designation_based_on_jd: e.target.value})}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
+                  </div>
+                  <div>
+                    <label style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem'}}>Profile Summary</label>
+                    <textarea value={editContent.profile_summary || ''} 
+                      onChange={e => setEditContent({...editContent, profile_summary: e.target.value})}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '120px', fontFamily: 'inherit' }} />
+                  </div>
                 </div>
-                <div>
-                  <label style={{fontWeight: 'bold'}}>Designation</label>
-                  <input type="text" value={editContent.candidate_designation_based_on_jd || ''} 
-                    onChange={e => setEditContent({...editContent, candidate_designation_based_on_jd: e.target.value})}
-                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
+              </div>
+
+              {/* BLOCK 2: Technical Skills */}
+              <div style={{ marginBottom: '2rem', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1.5rem' }}>
+                <h3 style={{ marginTop: 0, color: '#C41230' }}>2. Technical Skills</h3>
+                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>Comma separated values for each category.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {['languages', 'operating_systems', 'ui_technologies', 'databases', 'frameworks', 'tools', 'ides', 'delivery_methodologies'].map(skillKey => (
+                    <div key={skillKey}>
+                      <label style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'capitalize'}}>{skillKey.replace('_', ' ')}</label>
+                      <input type="text" 
+                        value={(editContent.technical_skills?.[skillKey] || []).join(', ')} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditContent(prev => ({
+                            ...prev, 
+                            technical_skills: {
+                              ...prev.technical_skills, 
+                              [skillKey]: val.split(',').map(s => s.trim()).filter(s => s)
+                            }
+                          }));
+                        }}
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }} />
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label style={{fontWeight: 'bold'}}>Profile Summary</label>
-                  <textarea value={editContent.profile_summary || ''} 
-                    onChange={e => setEditContent({...editContent, profile_summary: e.target.value})}
-                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '100px', fontFamily: 'inherit' }} />
+              </div>
+
+              {/* BLOCK 3: Project Details */}
+              <div style={{ marginBottom: '2rem', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0, color: '#C41230' }}>3. Project Details</h3>
+                  <button onClick={() => {
+                    const newProj = { project_name: '', client: '', role: '', duration: '', description: '', responsibilities: [] };
+                    setEditContent(prev => ({ ...prev, project_details: [...(prev.project_details || []), newProj] }));
+                  }} style={{ background: '#f0f0f0', border: '1px solid #ccc', borderRadius: '4px', padding: '0.25rem 0.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem' }}>
+                    <Plus size={14} /> Add Project
+                  </button>
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  {(editContent.project_details || []).map((proj, pIdx) => (
+                    <div key={pIdx} style={{ padding: '1rem', border: '1px dashed #ccc', borderRadius: '6px', position: 'relative' }}>
+                      <button onClick={() => {
+                        setEditContent(prev => {
+                          const newProjs = [...prev.project_details];
+                          newProjs.splice(pIdx, 1);
+                          return { ...prev, project_details: newProjs };
+                        });
+                      }} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: '#dc3545', cursor: 'pointer' }}>
+                        <Trash size={16} />
+                      </button>
+                      <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>Project {pIdx + 1}</h4>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                          <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Project Name</label>
+                          <input type="text" value={proj.project_name || ''} 
+                            onChange={e => {
+                              const newProjs = [...editContent.project_details];
+                              newProjs[pIdx].project_name = e.target.value;
+                              setEditContent({...editContent, project_details: newProjs});
+                            }}
+                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem' }} />
+                        </div>
+                        <div>
+                          <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Client</label>
+                          <input type="text" value={proj.client || ''} 
+                            onChange={e => {
+                              const newProjs = [...editContent.project_details];
+                              newProjs[pIdx].client = e.target.value;
+                              setEditContent({...editContent, project_details: newProjs});
+                            }}
+                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem' }} />
+                        </div>
+                        <div>
+                          <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Role</label>
+                          <input type="text" value={proj.role || ''} 
+                            onChange={e => {
+                              const newProjs = [...editContent.project_details];
+                              newProjs[pIdx].role = e.target.value;
+                              setEditContent({...editContent, project_details: newProjs});
+                            }}
+                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem' }} />
+                        </div>
+                        <div>
+                          <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Duration</label>
+                          <input type="text" value={proj.duration || ''} 
+                            onChange={e => {
+                              const newProjs = [...editContent.project_details];
+                              newProjs[pIdx].duration = e.target.value;
+                              setEditContent({...editContent, project_details: newProjs});
+                            }}
+                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem' }} />
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Description</label>
+                        <textarea value={proj.description || ''} 
+                          onChange={e => {
+                            const newProjs = [...editContent.project_details];
+                            newProjs[pIdx].description = e.target.value;
+                            setEditContent({...editContent, project_details: newProjs});
+                          }}
+                          style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '60px', fontFamily: 'inherit', fontSize: '0.9rem' }} />
+                      </div>
+
+                      <div>
+                        <label style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Responsibilities (One per line)</label>
+                        <textarea value={(proj.responsibilities || []).join('\n')} 
+                          onChange={e => {
+                            const newProjs = [...editContent.project_details];
+                            newProjs[pIdx].responsibilities = e.target.value.split('\n');
+                            setEditContent({...editContent, project_details: newProjs});
+                          }}
+                          style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '100px', fontFamily: 'inherit', fontSize: '0.9rem' }} />
+                      </div>
+                    </div>
+                  ))}
+                  {(!editContent.project_details || editContent.project_details.length === 0) && (
+                    <div style={{ color: '#666', fontSize: '0.9rem', fontStyle: 'italic' }}>No projects found.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* BLOCK 4: Certifications */}
+              <div style={{ marginBottom: '2rem', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1.5rem' }}>
+                <h3 style={{ marginTop: 0, color: '#C41230' }}>4. Certifications</h3>
+                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>One certification per line.</p>
+                <textarea value={(editContent.certifications || []).join('\n')} 
+                  onChange={e => {
+                    setEditContent(prev => ({
+                      ...prev,
+                      certifications: e.target.value.split('\n').filter(s => s.trim())
+                    }));
+                  }}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px', minHeight: '120px', fontFamily: 'inherit' }} />
               </div>
             </div>
           ) : resume && resume.previewUrl ? (

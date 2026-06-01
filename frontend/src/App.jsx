@@ -74,6 +74,7 @@ function Dashboard({
         onSelect={handleFileSelect}
         onDelete={handleRemoveFile}
         selectedFiles={selectedFiles}
+        onConvert={handleConvertToEstuate}
       />
 
       <input

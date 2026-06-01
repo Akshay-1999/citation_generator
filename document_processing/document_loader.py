@@ -292,18 +292,19 @@ class MemoryEfficientFileloader:
                         delete=False,
                         dir=temp_dir,
                         suffix=suffix) as tmp:
-                        temp_path = tmp.name
-                        tmp.write(data)  
-                        logger.info(f"--- Created temp file {temp_path} for file {file_path} ---")
-                        logger.info(f"--- Processing file {file_path} with mode {processing_mode} ---")
-                        async for doc in self._process_file(temp_path , user_id , file_name=file_name):
-                            doc.metadata.update({
-                                "file_name" : file_name,
-                                "file_path" : str(file_path),
-                                "user_id" : user_id,
-                                "processing_mode" : processing_mode
-                            })
-                            docs.append(doc)
+                temp_path = tmp.name
+                tmp.write(data)  
+            
+            logger.info(f"--- Created temp file {temp_path} for file {file_path} ---")
+            logger.info(f"--- Processing file {file_path} with mode {processing_mode} ---")
+            async for doc in self._process_file(temp_path , user_id , file_name=file_name):
+                doc.metadata.update({
+                    "file_name" : file_name,
+                    "file_path" : str(file_path),
+                    "user_id" : user_id,
+                    "processing_mode" : processing_mode
+                })
+                docs.append(doc)
         except Exception as e:
             logger.error(f"=== Error processing {file_path}: {e} ===", exc_info=True)
             docs.append(self._error_doc("Failed to process file", file_name, self.ext, str(file_path), e))                

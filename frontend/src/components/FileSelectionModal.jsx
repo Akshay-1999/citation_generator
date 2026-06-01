@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, FileText, Trash2, Check, Loader2 } from 'lucide-react';
 import { api } from '../api';
 
-const FileSelectionModal = ({ isOpen, onClose, onSelect, onDelete, selectedFiles }) => {
+const FileSelectionModal = ({ isOpen, onClose, onSelect, onDelete, onConvert, selectedFiles }) => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -92,9 +92,21 @@ const FileSelectionModal = ({ isOpen, onClose, onSelect, onDelete, selectedFiles
                                             <span className="file-name" title={file.filename}>{file.filename}</span>
                                             <span className="file-meta">{file.size_mb.toFixed(2)} MB • {file.extension}</span>
                                         </div>
-                                        <div className="file-actions">
+                                        <div className="file-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <button 
+                                                className="action-btn" 
+                                                title="Convert Resume"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onConvert({ original_file: file.filename, name: file.filename.split('.')[0] });
+                                                }}
+                                                style={{ color: '#007bff', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
+                                            >
+                                                <FileText size={16} />
+                                            </button>
                                             <button 
                                                 className="action-btn delete-btn" 
+                                                title="Delete File"
                                                 onClick={(e) => handleDelete(e, file.file_id)}
                                                 disabled={deletingId === file.file_id}
                                             >

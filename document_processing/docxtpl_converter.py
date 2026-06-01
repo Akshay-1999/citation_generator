@@ -74,7 +74,7 @@ def safe_join(values):
         return ""
     return ", ".join(values)
 
-def generate_docx_and_pdf(data: dict, template_path: str, pdf_dir: str, docx_dir: str, filename_base: str) -> dict:
+def generate_docx_and_pdf_json_file(data: dict, template_path: str, pdf_dir: str, docx_dir: str, filename_base: str) -> dict:
     """
     Generates DOCX from JSON data using docxtpl, then converts it to PDF.
     Returns the file paths.
@@ -126,6 +126,10 @@ def generate_docx_and_pdf(data: dict, template_path: str, pdf_dir: str, docx_dir
     try:
         import platform
         if platform.system() == "Windows":
+            # Initialize COM for the current background thread
+            import pythoncom
+            pythoncom.CoInitialize()
+            
             # docx2pdf is synchronous and uses MS Word COM, which can be blocking.
             docx2pdf_convert(docx_path, pdf_path)
         else:
@@ -186,7 +190,7 @@ async def run_docxtpl_conversion(resume_path: str, template_path: str, pdf_dir: 
 
     # Generate documents
     # Run synchronous IO/COM tasks in a thread
-    result = await asyncio.to_thread(generate_docx_and_pdf, data, template_path, pdf_dir, docx_dir, filename_base)
+    result = await asyncio.to_thread(generate_docx_and_pdf_json_file, data, template_path, pdf_dir, docx_dir, filename_base)
 
     logger.info(f"=== Conversion complete for {filename_base} ===")
     return {

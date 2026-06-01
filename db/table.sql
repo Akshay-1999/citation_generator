@@ -154,3 +154,15 @@ CREATE TABLE IF NOT EXISTS core.converted_resumes (
         REFERENCES core.users (user_id) ON DELETE CASCADE,
     CONSTRAINT uq_user_original_file UNIQUE (user_id, original_file)
 );
+
+ALTER TABLE core.converted_resumes
+RENAME COLUMN converted_file_path TO converted_pdf_file_path;
+
+ALTER TABLE core.converted_resumes
+ADD COLUMN converted_json_file_path text COLLATE pg_catalog."default";
+
+ALTER TABLE core.converted_resumes
+ADD COLUMN converted_docx_file_path text COLLATE pg_catalog."default";
+
+ALTER TABLE core.converted_resumes
+DROP CONSTRAINT uq_user_original_file;

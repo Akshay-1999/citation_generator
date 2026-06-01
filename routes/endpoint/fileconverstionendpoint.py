@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 # pyrefly: ignore [missing-import]
 from fastapi import HTTPException
 
-async def write_converted_file_path(user_id : str , original_file : str , converted_pdf_file_path : str , converted_docx_file_path : str):
+async def write_converted_file_path(user_id : str , original_file : str , converted_pdf_file_path : str , converted_docx_file_path : str , converted_json_file_path : str):
     """
     Write the converted file path to the database.
     """
@@ -17,13 +17,14 @@ async def write_converted_file_path(user_id : str , original_file : str , conver
             logger.info(f"--- Writing converted file path: {converted_pdf_file_path} and {converted_docx_file_path} for file: {original_file} ---")
             await connection.execute(
                 """
-                INSERT INTO core.converted_resumes (user_id, original_file, converted_pdf_file_path, converted_docx_file_path, created_at, updated_at, status, is_deleted)
+                INSERT INTO core.converted_resumes (user_id, original_file, converted_pdf_file_path, converted_docx_file_path, converted_json_file_path , created_at, updated_at, status, is_deleted)
                 VALUES ($1, $2, $3, $4, now(), now(), 'completed', false)
                 """,
                 user_id,
                 original_file,
                 converted_pdf_file_path,
-                converted_docx_file_path
+                converted_docx_file_path,
+                converted_json_file_path
             )
             logger.info(f"=== Converted file path written successfully for file: {original_file} ===")
         except Exception as e:
@@ -66,7 +67,7 @@ async def check_converted_status(user_id : str , file_path : str):
             logger.info(f"--- Checking converted status for file: {file_path} ---")
             row = await connection.fetchrow(
                 """
-                SELECT id, converted_pdf_file_path,converted_docx_file_path, status
+                SELECT id, converted_pdf_file_path,converted_docx_file_path,converted_json_file_path, status
                 FROM core.converted_resumes
                 WHERE user_id = $1 AND original_file = $2 AND is_deleted = false
                 """,
@@ -75,7 +76,7 @@ async def check_converted_status(user_id : str , file_path : str):
             )
             if row:
                 logger.info(f"--- Converted file path found exist ---")
-                message = {"pdf_file_path" : row["converted_pdf_file_path"] , "docx_file_path" : row["converted_docx_file_path"]}
+                message = {"pdf_file_path" : row["converted_pdf_file_path"] , "docx_file_path" : row["converted_docx_file_path"] , "converted_json_file_path" : row["converted_json_file_path"]}
                 return message
             else:
                 logger.info(f"--- Converted status not found for file: {file_path} ---")
