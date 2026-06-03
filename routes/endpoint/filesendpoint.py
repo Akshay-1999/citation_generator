@@ -8,7 +8,7 @@ import os
 
 async def get_file_extension(file_name : str)-> str:
     allowed_format = ['.pdf' , '.doc' , '.docx']
-    file_extension = Path(file_name).suffix
+    file_extension = Path(file_name).suffix.lower()
     if file_extension not in allowed_format:
         logger.error(f"=== File extension {file_extension} is not allowed ===")
         return None
