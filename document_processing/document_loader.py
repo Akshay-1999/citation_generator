@@ -179,7 +179,10 @@ class MemoryEfficientFileloader:
                                 "success"
                             ))
                             logger.debug(f"Chunk {chunk_index+1} processed successfully for file {file_path}")
-                            metadata = self._base_metadata(file_name , str(file_path) , ext , start_page , created_at , modified_at , user_id)
+                            base_meta = self._base_metadata(file_name , str(file_path) , ext , start_page , created_at , modified_at , user_id)
+                            # Preserve the processing_tool and other extraction-specific metadata!
+                            base_meta.update(metadata)
+                            metadata = base_meta
 
                             # Add the new, specific metadata fields
                             metadata['chunk_index'] = chunk_index
@@ -237,6 +240,8 @@ class MemoryEfficientFileloader:
                             modified_at, 
                             user_id
                         )
+                        # Preserve extraction metadata (like processing_tool = 'unstructured')
+                        base_meta.update(extraction_metadata)
                         base_meta['chunk_index'] = 0
                         base_meta['start_page'] = 0
                         base_meta['content_format'] = 'markdown'
@@ -298,11 +303,13 @@ class MemoryEfficientFileloader:
             logger.info(f"--- Created temp file {temp_path} for file {file_path} ---")
             logger.info(f"--- Processing file {file_path} with mode {processing_mode} ---")
             async for doc in self._process_file(temp_path , user_id , file_name=file_name):
+                # Use the actual tool that processed the document if it was updated during fallback (e.g. OCR)
+                actual_processing_mode = doc.metadata.get("processing_tool", processing_mode)
                 doc.metadata.update({
                     "file_name" : file_name,
                     "file_path" : str(file_path),
                     "user_id" : user_id,
-                    "processing_mode" : processing_mode
+                    "processing_mode" : actual_processing_mode
                 })
                 docs.append(doc)
         except Exception as e:

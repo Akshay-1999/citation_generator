@@ -15,6 +15,92 @@ from utils.logging_utils import set_system_logger
 from langchain_community.document_loaders import UnstructuredWordDocumentLoader
 logger = set_system_logger("system_logger")
 
+async def extract_with_ocr(file_path : str) -> Tuple[str, dict] : 
+    import pytesseract
+    from PIL import Image 
+    import os
+    import fitz
+
+    import shutil
+    
+    # 1. Dynamically find the tesseract executable
+    # First, check if it's explicitly set in the environment variables
+    tesseract_path = os.environ.get("TESSERACT_CMD")
+    
+    # Second, check if it's already in the system PATH (works out of the box on Ubuntu)
+    if not tesseract_path:
+        tesseract_path = shutil.which("tesseract")
+        
+    # Third, check common Windows installation paths
+    if not tesseract_path and os.name == 'nt':
+        common_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe") # Your local path
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                tesseract_path = path
+                break
+                
+    if not tesseract_path:
+        logger.error("=== TESSERACT EXECUTABLE NOT FOUND. PLEASE INSTALL TESSERACT OR SET TESSERACT_CMD ===")
+        return ""
+        
+    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+    import tempfile
+    
+    # Extract text from the images using a unique temporary directory
+    # This prevents bugs if two users upload scanned PDFs at the exact same time!
+    # A TemporaryDirectory automatically deletes itself and all images inside when the 'with' block finishes.
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Convert the PDF to images  
+            doc = fitz.open(file_path)
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                pix = page.get_pixmap(dpi=150)
+                output_image_path = os.path.join(temp_dir, f"{1+page_num}_page.png")
+                pix.save(output_image_path)
+            doc.close()
+
+            folder_path = Path(temp_dir)
+            loop = asyncio.get_running_loop()
+            #get all the image files
+            image_files = [item for item in folder_path.iterdir() if item.suffix == ".png"]
+            #sort the image file 
+            image_files.sort(key=lambda x: int(x.name.split('_')[0]))
+            
+            # We will store tasks here
+            tasks = []
+            
+            for item in image_files:
+                # Use run_in_executor so the blocking pytesseract function runs in a background thread!
+                task = loop.run_in_executor(None, pytesseract.image_to_string, str(item))
+                tasks.append(task)
+                    
+            # Run all OCR tasks concurrently in the background threads and wait for them all to finish
+            results = await asyncio.gather(*tasks)
+            
+            # Join the resulting list of strings into one complete string
+            complete_text = "\n\n".join(results)
+            
+    except Exception as e:
+        logger.error(f"=== OCR EXTRACTION FAILED: {e} ===")
+        return "", {"error": str(e)}
+
+    start_time = time.perf_counter()
+    start_timestamp = datetime.datetime.now()
+    logger.info(f"=== COMPLETED OCR FOR FILE: {Path(file_path).name} ===")
+    metadata={
+        "chunk_name": file_path,
+        "processing_tool": 'ocr',
+        "start_timestamp": start_timestamp,
+        "processing_time": time.perf_counter() - start_time,
+        "task_id": "N/A",
+        "fallback_reason": "N/A"
+    }        
+    return complete_text, metadata
 
 async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] = None) -> str:
     start_time = time.perf_counter()
@@ -45,7 +131,9 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
         doc = fitz.open(file_path)
         try:
             fitz_len = sum(len(page.get_text()) for page in (doc[i] for i in (page_range if page_range else range(len(doc)))))
-            if len(result.strip()) < 1000 and fitz_len > len(result.strip()) + 500:
+            if not result.strip():
+                raise Exception("pymupdf4llm returned empty text. Forcing fallback.")
+            elif len(result.strip()) < 1000 and fitz_len > len(result.strip()) + 500:
                 raise Exception(f"pymupdf4llm returned only {len(result.strip())} chars, but fitz found {fitz_len} chars. Forcing fallback.")
             
             # Prevent resume headers (Name, Contact) from being stripped
@@ -103,12 +191,30 @@ async def extract_with_pymupdf(file_path: str, page_range: Optional[List[int]] =
             processing_time = time.perf_counter() - start_time
             metadata["processing_time"] = processing_time
             logger.info(f"=== FITZ FALLBACK COMPLETED FOR FILE: {Path(file_path).name} - {'SUCCESS' if result.strip() else 'NO TEXT'} IN {processing_time:.2f} seconds ===")
-            return result, metadata
+            if not result.strip():
+                logger.info(f"--- Falling back to OCR for: {Path(file_path).name} ---")
+                text, ocr_meta = await extract_with_ocr(file_path)
+                metadata.update(ocr_meta)
+                return text, metadata
+            else:
+                return result, metadata
         except Exception as fallback_err:
             logger.error(f"=== Fitz fallback also failed for {Path(file_path).name}: {fallback_err} ===")
+            metadata["processing_tool"] = "OCR"
+            metadata["fallback_reason"] = str(fallback_err)
             processing_time = time.perf_counter() - start_time
             metadata["processing_time"] = processing_time
-            return "", metadata
+            logger.info(f"--- Falling back to OCR for: {Path(file_path).name} ---")
+            try:
+                text, ocr_meta = await extract_with_ocr(file_path)
+                metadata.update(ocr_meta)
+                return text, metadata
+            except Exception as ocr_err:
+                logger.error(f"=== OCR fallback also failed for {Path(file_path).name}: {ocr_err} ===")
+                processing_time = time.perf_counter() - start_time
+                metadata["processing_time"] = processing_time
+                return "", metadata
+            
 
 def _is_html_disguised_as_doc(file_path: str) -> bool:
     """
