@@ -8,6 +8,12 @@ echo "Pulling latest code from Git..."
 git fetch origin
 git reset --hard origin/fix-auth-cors
 
+# 1.5. Install Python dependencies
+echo "Installing Python dependencies..."
+# Assuming your venv is located at ~/myapp/citation_generator/venv based on your standard setup
+source ~/myapp/citation_generator/venv/bin/activate
+pip install -r ~/myapp/citation_generator/requirements.txt --use-deprecated=legacy-resolver
+
 # 2. Restart FastAPI backend
 echo "Restarting FastAPI backend..."
 sudo systemctl restart fastapi

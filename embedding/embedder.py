@@ -92,6 +92,10 @@ async def query_similar_documents(query : str , user_id : str = None , top_k : i
             else:
                 logger.info(f"--- no matches found for user {user_id} ---")
 
+            if not all_matches:
+                logger.info("--- No documents to rerank. Returning empty matches. ---")
+                return {"matches": [], "no_results": True}
+
             documents_for_reranking = [{"text": match.metadata.get("text" , "")} for match in all_matches]
             reranked_documents_result = await loop.run_in_executor(None, lambda: rerank_documents(query , documents_for_reranking))
             reranked_documents = []
