@@ -43,9 +43,21 @@ async def extract_with_ocr(file_path : str) -> Tuple[str, dict] :
                 tesseract_path = path
                 break
                 
+    # Fourth, check common Linux paths in case PATH environment variable is restricted (e.g. under systemd/gunicorn)
+    if not tesseract_path and os.name != 'nt':
+        linux_paths = [
+            "/usr/bin/tesseract",
+            "/usr/local/bin/tesseract",
+            "/opt/homebrew/bin/tesseract"
+        ]
+        for path in linux_paths:
+            if os.path.exists(path):
+                tesseract_path = path
+                break
+                
     if not tesseract_path:
         logger.error("=== TESSERACT EXECUTABLE NOT FOUND. PLEASE INSTALL TESSERACT OR SET TESSERACT_CMD ===")
-        return ""
+        return "", {"error": "Tesseract executable not found"}
         
     pytesseract.pytesseract.tesseract_cmd = tesseract_path
     import tempfile
