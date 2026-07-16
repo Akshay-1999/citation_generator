@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Folder, Loader2, Database, FileText, Trash2, X } from 'lucide-react';
+import { Send, Paperclip, Folder, Loader2, Database, FileText, Trash2, X, Sparkles } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
 const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolderModal, onOpenFileSelection, selectedFiles = [], onRemoveFile }) => {
@@ -33,9 +33,11 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
             <div className="messages-container">
                 {messages.length === 0 ? (
                     <div className="welcome-screen">
-                        <div className="welcome-icon">📝</div>
-                        <h2>ProfileIQ</h2>
-                        <p>Start a new chat to begin screening candidates or answering recruitment queries.</p>
+                        <div className="welcome-icon-wrapper">
+                            <Sparkles size={40} className="welcome-icon" />
+                        </div>
+                        <h2>Welcome to ProfileIQ</h2>
+                        <p>Your AI-powered recruitment assistant. Ask questions, analyze resumes, or generate screening reports effortlessly.</p>
                     </div>
                 ) : (
                     messages.map((msg, idx) => (

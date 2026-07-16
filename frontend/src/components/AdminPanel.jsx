@@ -169,30 +169,32 @@ const AdminPanel = () => {
                 </button>
             </div>
 
-            <div className="input-container" style={{ padding: '0 0 2rem 0' }}>
-                <form onSubmit={handleSearch} className="input-wrapper" style={{ maxWidth: '500px' }}>
-                    <Search size={20} className="text-muted" />
-                    <input
-                        type="text"
-                        placeholder="Search user by email..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ background: 'none', border: 'none', color: '#1a1a2e', flex: 1, padding: '0.5rem' }}
-                    />
+            <div className="admin-actions-bar" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', background: '#fff', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)' }}>
+                <form onSubmit={handleSearch} style={{ display: 'flex', flex: 1, gap: '1rem' }}>
+                    <div className="input-with-icon" style={{ flex: 1 }}>
+                        <Search size={18} className="input-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search user by email..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)', outline: 'none' }}
+                        />
+                    </div>
                     <button
                         type="submit"
                         className="process-btn"
-                        style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                        style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem' }}
                         disabled={isLoading || !searchTerm}
                     >
                         {isLoading ? <Loader2 className="animate-spin" size={16} /> : 'Search'}
                     </button>
                     <button
                         type="button"
-                        className="process-btn"
-                        style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                        className="action-btn-secondary"
                         onClick={handleFetchActiveUsers}
                         disabled={isLoading}
+                        style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', whiteSpace: 'nowrap', border: '1px solid var(--glass-border)', background: 'white', borderRadius: '8px', cursor: 'pointer' }}
                     >
                         {isLoading ? <Loader2 className="animate-spin" size={16} /> : 'Get Active Users'}
                     </button>
