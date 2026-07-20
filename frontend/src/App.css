@@ -387,6 +387,7 @@ h4 {
   flex-direction: column;
   position: relative;
   background: var(--bg-secondary);
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .messages-container {
@@ -827,7 +828,7 @@ h4 {
   border: 1px solid var(--glass-border);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  animation: scaleIn 0.2s ease;
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .modal-header {
@@ -1087,44 +1088,206 @@ h4 {
    LOGIN PAGE
    ═══════════════════════════════════════════ */
 .login-container {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  background: #f8f9fc; /* Estuate light-grey theme */
+  overflow: hidden;
+}
+
+/* ═══════════════════ MOSAIC BACKGROUND PANEL ═══════════════════ */
+.login-mosaic {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+  background: #f3f4f6;
+}
+
+.mosaic-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 155px;
+  gap: 16px;
+  padding: 24px;
+  height: 120%;
+  width: 120%;
+  position: absolute;
+  top: -12%;
+  left: -10%;
+  transform: rotate(-3deg); /* Dynamic tilt effect */
+  opacity: 0.75;
+}
+
+.mosaic-tile {
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  animation: tileReveal 0.8s ease-out both;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  cursor: default;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mosaic-tile:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(196, 18, 48, 0.3);
+}
+
+.tile-tall {
+  grid-row: span 2;
+}
+
+.tile-wide {
+  grid-column: span 2;
+}
+
+.tile-icon {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.tile-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.mosaic-overlay-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Light overlay so tiles are clearly visible */
+  background: linear-gradient(135deg, rgba(248, 249, 252, 0.88) 0%, rgba(248, 249, 252, 0.4) 50%, rgba(248, 249, 252, 0.9) 100%);
+  z-index: 2;
+}
+
+/* ═══════════════════ RESPONSIVE FLEX CONTENT LAYER ═══════════════════ */
+.login-content-layer {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  width: 100vw;
+  height: 100vh;
+  padding: 3rem 6vw;
+  box-sizing: border-box;
+  gap: 2rem;
+}
+
+.login-left-copy {
+  flex: 1;
+  max-width: 45%;
+  margin-top: auto;
+  padding-bottom: 2.5rem;
+  pointer-events: none;
+  animation: slideUpFade 0.9s ease-out 0.4s both;
+}
+
+.login-left-copy h2 {
+  font-size: clamp(2rem, 3.2vw, 3.2rem);
+  font-weight: 850;
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+  color: #111827;
+  letter-spacing: -0.04em;
+}
+
+.login-left-copy h2 span {
+  color: #C41230;
+  text-shadow: none;
+}
+
+.login-left-copy p {
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  color: #4b5563;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ═══════════════════ FLOATING CARD CONTAINER ═══════════════════ */
+.login-floating-panel {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 420px;
+  margin-top: auto;
+  margin-bottom: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  width: 100vw;
-  background: #f7f8fa;
+  z-index: 10;
+  animation: slideInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .login-card {
   width: 100%;
-  max-width: 420px;
-  padding: 2.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding: 2.5rem 2rem;
   background: #ffffff;
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 24px;
   text-align: center;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
 }
 
 .login-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.estuate-logo {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #C41230;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+  user-select: none;
+}
+
+.login-subheader {
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  margin-top: 0;
+  margin-bottom: 0.2rem;
+}
+
+.logo-icon {
+  color: var(--brand-primary);
 }
 
 .login-header h1 {
-  font-size: 1.5rem;
-  margin: 0.75rem 0 0.4rem;
+  font-size: 1.8rem;
+  margin: 0 0 0.5rem;
   color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: 1rem;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
   text-align: left;
 }
 
@@ -1141,16 +1304,18 @@ h4 {
 .login-btn {
   background: var(--brand-gradient);
   color: white;
-  padding: 0.85rem;
-  border-radius: 8px;
+  padding: 0.95rem;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
+  font-size: 1rem;
+  margin-top: 1rem;
+  box-shadow: 0 4px 16px rgba(196, 18, 48, 0.25);
+  transition: all 0.3s ease;
 }
 
-.login-btn:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(196, 18, 48, 0.35);
 }
 
 .login-btn:disabled {
@@ -1160,9 +1325,217 @@ h4 {
 }
 
 .login-footer {
-  margin-top: 2rem;
-  font-size: 0.72rem;
+  margin-top: 2.5rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* Removed old right panel – replaced by mosaic */
+.animated-background,
+.shape, .shape-1, .shape-2, .shape-3,
+.particle, .p-1, .p-2, .p-3, .p-4, .p-5, .p-6,
+.login-right-content,
+.highlight-red,
+.typing-effect {
+  display: none;
+}
+
+.animated-background {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  /* Dark techy mesh background overlay */
+  background-image: radial-gradient(rgba(196, 18, 48, 0.15) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.shape {
+  position: absolute;
+  filter: blur(80px);
+  z-index: 1;
+  opacity: 0.85;
+}
+
+.shape-1 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(196, 18, 48, 0.4) 0%, rgba(196, 18, 48, 0) 70%);
+  top: -5%;
+  right: -5%;
+  animation: morphBlob1 20s infinite alternate ease-in-out;
+}
+
+.shape-2 {
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(196, 18, 48, 0.3) 0%, rgba(196, 18, 48, 0.02) 75%);
+  bottom: -10%;
+  left: -5%;
+  animation: morphBlob2 25s infinite alternate ease-in-out;
+}
+
+.shape-3 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(196, 18, 48, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+  top: 35%;
+  left: 25%;
+  animation: float 15s infinite ease-in-out alternate;
+}
+
+.highlight-red {
+  color: var(--brand-primary);
+  text-shadow: 0 0 20px rgba(196, 18, 48, 0.6);
+}
+
+@keyframes morphBlob1 {
+  0% {
+    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    border-radius: 70% 30% 52% 48% / 60% 40% 60% 40%;
+    transform: translate(40px, -30px) scale(1.1);
+  }
+  100% {
+    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes morphBlob2 {
+  0% {
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%;
+    transform: translate(-30px, 40px) scale(0.95);
+  }
+  100% {
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate(50px, 30px) rotate(10deg) scale(1.1); }
+  100% { transform: translate(-30px, -50px) rotate(-5deg) scale(0.9); }
+}
+
+.login-right-content {
+  position: relative;
+  z-index: 2;
+  color: white;
+  text-align: center;
+  max-width: 500px;
+  animation: slideUpFade 1s ease-out 0.3s both;
+}
+
+.login-right-content h2 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.login-right-content p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+@keyframes slideUpFade {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes animate-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: animate-shake 0.4s ease-in-out;
+}
+
+@media (max-width: 960px) {
+  .login-content-layer {
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.5rem;
+    overflow-y: auto;
+  }
+  .login-left-copy {
+    max-width: 100%;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .login-left-copy h2 {
+    font-size: 2.2rem;
+  }
+  .login-floating-panel {
+    max-width: 100%;
+  }
+  .login-card {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   ADVANCED LOGIN ANIMATIONS
+   ═══════════════════════════════════════════ */
+.slide-in-1 { animation: slideUpFade 0.6s ease-out 0.2s both; }
+.slide-in-2 { animation: slideUpFade 0.6s ease-out 0.3s both; }
+.slide-in-3 { animation: slideUpFade 0.6s ease-out 0.4s both; }
+.slide-in-4 { animation: slideUpFade 0.6s ease-out 0.5s both; }
+
+.typing-effect {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid rgba(255,255,255,0.7);
+  animation: typing 2.5s steps(30, end), blink-caret .75s step-end infinite;
+  margin: 0 auto 1.5rem;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: rgba(255,255,255,0.7); }
+}
+
+.particle {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  animation: rise 10s infinite linear;
+  z-index: 1;
+}
+
+.p-1 { width: 8px; height: 8px; left: 10%; bottom: -10px; animation-duration: 8s; animation-delay: 1s; }
+.p-2 { width: 12px; height: 12px; left: 30%; bottom: -10px; animation-duration: 12s; animation-delay: 3s; }
+.p-3 { width: 6px; height: 6px; left: 50%; bottom: -10px; animation-duration: 9s; animation-delay: 2s; }
+.p-4 { width: 10px; height: 10px; left: 70%; bottom: -10px; animation-duration: 15s; animation-delay: 0s; }
+.p-5 { width: 14px; height: 14px; left: 90%; bottom: -10px; animation-duration: 11s; animation-delay: 4s; }
+.p-6 { width: 5px; height: 5px; left: 20%; bottom: -10px; animation-duration: 7s; animation-delay: 5s; }
+
+@keyframes rise {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-1000px) scale(0); opacity: 0; }
 }
 
 /* ═══════════════════════════════════════════
@@ -1206,14 +1579,21 @@ h4 {
 
 @keyframes scaleIn {
   from {
-    transform: scale(0.96);
+    transform: scale(0.9) translateY(20px);
     opacity: 0;
   }
-
   to {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* ═══════════════════════════════════════════
@@ -1233,7 +1613,7 @@ h4 {
   gap: 0.85rem;
   z-index: 10000;
   min-width: 280px;
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   border-left: 4px solid var(--brand-primary);
 }
 
@@ -1325,6 +1705,7 @@ h4 {
   z-index: 1000;
   height: 100vh;
   width: 100%;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .dashboard-header {
