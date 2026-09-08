@@ -1,0 +1,327 @@
+===================================================================================================================================================================================================
+AI VIDEO INTERVIEW & ANALYTICS PLATFORM - SYSTEM DESIGN & TECHNICAL ARCHITECTURE
+===================================================================================================================================================================================================
+
+===================================================================================================================================================================================================
+1. DATABASE DESIGN (POSTGRESQL - SCHEMA: interview)
+===================================================================================================================================================================================================
+
+Schema Relationship Diagram:
+
+  core.screening_batches (Job)      core.users (Recruiter)
+              │                               │
+              │                               │ (recruiter_id FK)
+              ▼                               ▼
+       interview.candidates ────────▶ interview.interview_sessions
+                                                │
+                       ┌────────────────────────┴────────────────────────┐
+                       ▼                                                 ▼
+             interview.interview_turns                        interview.interview_documents
+                       │                                      (Govt ID & Webcam Selfie)
+                       ▼
+             interview.interview_reports
+            (AI Score, Strengths, Feedback)
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+1.1 Candidate Table: interview.candidates
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+- candidate_id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- recruiter_id          UUID NOT NULL (FK -> core.users.user_id ON DELETE CASCADE)
+- candidate_name        VARCHAR(255) NOT NULL
+- candidate_email       VARCHAR(320) NOT NULL
+- candidate_phone_number VARCHAR(50)
+- job_position          VARCHAR(255)
+- client                VARCHAR(255)
+- years_of_experience   NUMERIC(4, 1)
+- created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+- deleted_at            TIMESTAMPTZ DEFAULT NULL
+- is_deleted            BOOLEAN DEFAULT false
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+1.2 Interview Session Table: interview.interview_sessions
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+- session_id            UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- candidate_id          UUID NOT NULL (FK -> interview.candidates.candidate_id ON DELETE CASCADE)
+- job_id                UUID (FK -> core.screening_batches.id ON DELETE SET NULL)
+- recruiter_id          UUID NOT NULL (FK -> core.users.user_id ON DELETE CASCADE)
+- status                VARCHAR(50) NOT NULL DEFAULT 'CREATED'
+                        CHECK (status IN ('CREATED', 'EMAIL_SENT', 'STARTED', 'IN_PROGRESS', 'SUBMITTED', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'))
+- interview_token       VARCHAR(255) NOT NULL UNIQUE (Secure single-use token for candidate URL)
+- interview_url         TEXT
+- invite_sent_on        TIMESTAMPTZ DEFAULT NULL
+- expires_at            TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '2 days')
+- started_at            TIMESTAMPTZ DEFAULT NULL
+- completed_at          TIMESTAMPTZ DEFAULT NULL
+- overall_score         NUMERIC(5, 2) DEFAULT NULL
+- recommendation        VARCHAR(100) DEFAULT NULL (e.g., 'Strong Hire', 'Hire', 'Hold', 'Reject')
+- created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+- updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+1.3 Interview Turns Table: interview.interview_turns (Per-Question Video & Analytics)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+- turn_id               UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- session_id            UUID NOT NULL (FK -> interview.interview_sessions.session_id ON DELETE CASCADE)
+- turn_number           INTEGER NOT NULL (e.g., 1, 2, 3, 4, 5)
+- question_id           VARCHAR(100)
+- question_text         TEXT NOT NULL
+- question_generation_source VARCHAR(100) DEFAULT 'AI_GENERATED'
+- question_type         VARCHAR(100) DEFAULT 'TECHNICAL' (e.g., BEHAVIORAL, TECHNICAL, SCENARIO)
+- video_path            TEXT (Path to recorded candidate video file)
+- audio_path            TEXT (Path to extracted MP3/WAV audio)
+- response_duration     NUMERIC(6, 2) (Duration in seconds)
+- transcript            TEXT (Whisper STT output)
+- language              VARCHAR(50) DEFAULT 'en'
+- confidence            NUMERIC(5, 2)
+- transcript_processing_time NUMERIC(6, 2) (In seconds)
+- communication_score   NUMERIC(5, 2) (Turn-level communication rating)
+- technical_score       NUMERIC(5, 2) (Turn-level technical accuracy rating)
+- answer_summary        TEXT (AI summary of answer)
+- answer_feedback       TEXT (AI critique / strengths & weaknesses for this turn)
+- processing_status     VARCHAR(50) NOT NULL DEFAULT 'PENDING'
+                        CHECK (processing_status IN ('PENDING', 'TRANSCRIBING', 'ANALYZING', 'COMPLETED', 'FAILED'))
+- submitted_at          TIMESTAMPTZ DEFAULT NULL
+- created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+- CONSTRAINT uq_session_turn UNIQUE (session_id, turn_number)
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+1.4 Interview Documents Table: interview.interview_documents (Identity Verification)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+- document_id           UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- session_id            UUID NOT NULL (FK -> interview.interview_sessions.session_id ON DELETE CASCADE)
+- candidate_image       TEXT (Webcam selfie capture path)
+- document_type         VARCHAR(50) NOT NULL CHECK (document_type IN ('AADHAR', 'PASSPORT', 'PAN', 'DRIVING_LICENSE', 'VOTER_ID', 'OTHER'))
+- file_path             TEXT NOT NULL (Uploaded ID proof path)
+- verification_status   VARCHAR(50) NOT NULL DEFAULT 'PENDING' CHECK (verification_status IN ('PENDING', 'VERIFIED', 'FLAGGED', 'FAILED'))
+- confidence_score      NUMERIC(5, 2) DEFAULT NULL
+- uploaded_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+1.5 Interview Reports Table: interview.interview_reports (Holistic AI Assessment)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+- report_id                 UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- session_id                UUID NOT NULL UNIQUE (FK -> interview.interview_sessions.session_id ON DELETE CASCADE)
+- communication_score       NUMERIC(5, 2)
+- technical_score           NUMERIC(5, 2)
+- resume_consistency_score  NUMERIC(5, 2) (Validates candidate spoken answers against resume claims)
+- overall_score             NUMERIC(5, 2)
+- recommendation            VARCHAR(100) ('Strong Hire', 'Hire', 'Hold', 'Reject')
+- summary                   TEXT (Executive candidate summary)
+- strengths                 JSONB (List of key strengths)
+- weaknesses                JSONB (List of identified gaps)
+- improvement_areas         JSONB (Actionable coaching/growth areas)
+- confidence_indicators     JSONB (Clarity, Fluency, Eye contact/Pace signals)
+- created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+
+
+===================================================================================================================================================================================================
+2. API DESIGN & ENDPOINT SPECIFICATIONS
+===================================================================================================================================================================================================
+
+Actors:
+1. Recruiter (Authenticated via ProfileIQ JWT / Session)
+2. Candidate (Authenticated via Time-limited Interview Token)
+3. AI Worker / Processing Service (Internal Pipeline)
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+2.1 Recruiter APIs (/interview/recruiter/...)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+• POST /api/interview/recruiter/create
+  - Input: { candidate_name, candidate_email, candidate_phone, position, client, experience, job_id }
+  - Logic: Creates candidate + session, triggers AI question generator (5 questions), creates secure 48h token & URL.
+  - Response: { session_id, interview_url, expires_at, status: "CREATED" }
+
+• POST /api/interview/recruiter/{session_id}/send-invite
+  - Logic: Dispatches professional invitation email with interview URL; sets status to "EMAIL_SENT".
+  - Response: { message: "Invitation sent successfully", invite_sent_on: "2026-09-02T10:00:00Z" }
+
+• GET /api/interview/recruiter/{session_id}/status
+  - Response: { session_id, status, candidate, progress: "3/5 turns", started_at, completed_at }
+
+• GET /api/interview/recruiter/{session_id}/report
+  - Response: Full evaluation report, radar scores, turn-by-turn video URLs, transcripts, strengths, weaknesses.
+
+• GET /api/interview/recruiter/list?status=&job_id=&date=
+  - Response: Paginated list of interview sessions for the logged-in recruiter (or all for admin).
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+2.2 Candidate Portal APIs (/interview/candidate/...)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+• GET /api/interview/candidate/{token}/validate
+  - Logic: Verifies if token exists, is unexpired (expires_at > now), and status is not COMPLETED/EXPIRED.
+  - Response: { valid: true, candidate_name, job_position, current_turn, status: "STARTED" }
+
+• POST /api/interview/candidate/{token}/documents
+  - Input: Multipart form (id_document file + candidate_selfie image)
+  - Logic: Stores files in storage/interviews/{session_id}/documents/, creates interview_documents record.
+
+• GET /api/interview/candidate/{token}/questions
+  - Response: Returns list of 5 generated questions with question_id, turn_number, question_text, and completed turns status.
+
+• POST /api/interview/candidate/{token}/turn
+  - Input: Multipart form (turn_number, video_file: webm/mp4, response_duration)
+  - Logic: Saves video turn, extracts audio via FFmpeg, updates interview_turns record.
+
+• POST /api/interview/candidate/{token}/submit
+  - Logic: Updates session status to "SUBMITTED" and enqueues background AI processing pipeline.
+  - Response: { success: true, message: "Interview submitted successfully. AI analysis in progress." }
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+2.3 AI Processing Internal Services (/internal/interview/...)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+• POST /internal/interview/generate-questions
+  - Input: { jd_text, resume_text }
+  - Output: 5 structured questions (1 Introductory/Behavioral, 3 Role Technical, 1 Problem Solving).
+
+• POST /internal/interview/transcribe-turn
+  - Input: { turn_id, audio_path }
+  - Output: { transcript, language, confidence }
+
+• POST /internal/interview/evaluate-session
+  - Input: { session_id }
+  - Output: Comprehensive structured JSON report (Scores, Critique, Recommendation).
+
+
+===================================================================================================================================================================================================
+3. HIGH-LEVEL SYSTEM ARCHITECTURE & DECOUPLED SERVICE DESIGN
+===================================================================================================================================================================================================
+
+                        ┌──────────────────────────────────────────────┐
+                        │      ProfileIQ Recruiter Dashboard           │
+                        │    - "Send Interview Invite" Modal           │
+                        │    - "See Interview Result" Analytics Modal  │
+                        └──────────────────────┬───────────────────────┘
+                                               │ REST API
+                                               ▼
+                        ┌──────────────────────────────────────────────┐
+                        │        FastAPI Interview Backend             │
+                        │    - Session & Token Management              │
+                        │    - Video Uploads & Storage Management      │
+                        │    - Background Task Dispatcher              │
+                        └──────┬───────────────────────────────▲───────┘
+                               │                               │
+            Token HTTPS Link   │                               │ HTTPS Turn Uploads
+                               ▼                               │
+                        ┌──────────────────────────────────────┴───────┐
+                        │       Standalone Candidate Portal            │
+                        │    1. Camera/Mic Hardware Test               │
+                        │    2. Govt ID Upload & Selfie Capture        │
+                        │    3. Turn-by-Turn Video Recording           │
+                        │    4. Final Submission                       │
+                        └──────────────────────────────────────────────┘
+                                               │
+                                               ▼
+                        ┌──────────────────────────────────────────────┐
+                        │         AI Processing Pipeline (Worker)      │
+                        │    1. FFmpeg Audio Extraction                │
+                        │    2. Whisper Speech-to-Text                 │
+                        │    3. LLM Turn & Holistic Evaluation         │
+                        │    4. Save to interview_reports              │
+                        └──────────────────────────────────────────────┘
+
+
+===================================================================================================================================================================================================
+4. PROJECT FOLDER & COMPONENT STRUCTURE
+===================================================================================================================================================================================================
+
+citation_generator/
+│
+├── routes/
+│   └── interview/                       # 🌐 Route Handlers
+│       ├── __init__.py
+│       ├── recruiter_routes.py          # Recruiter management & invites
+│       ├── candidate_routes.py          # Public Candidate portal endpoints
+│       └── report_routes.py             # Report & analytics endpoints
+│
+├── service/
+│   └── interview/                       # ⚙️ Business Logic
+│       ├── __init__.py
+│       ├── session_service.py           # Token generation, session state machine
+│       ├── media_service.py             # Video/Audio saving & FFmpeg extraction
+│       ├── email_service.py             # Invitation email dispatch
+│       └── document_service.py          # ID & selfie validation
+│
+├── ai_interview/                        # 🧠 AI Pipeline & Models
+│   ├── __init__.py
+│   ├── prompts.py                       # Prompt templates & rubrics
+│   ├── schemas.py                       # Pydantic schemas for structured JSON output
+│   ├── question_generator.py            # AI Question Generator (Resume + JD)
+│   ├── transcriber.py                   # Whisper STT client
+│   ├── turn_evaluator.py                # Per-turn answer evaluation
+│   ├── report_generator.py              # Holistic assessment & score calculation
+│   └── pipeline_worker.py               # Background pipeline worker orchestrator
+│
+├── db/
+│   ├── video feature tables.sql         # PostgreSQL DDL for interview schema
+│   ├── interview_models.py              # Pydantic & ORM models
+│   └── interview_repo.py                # Database CRUD repository
+│
+├── uploaded_files/
+│   └── interviews/                      # 💾 Persistent Media Storage
+│       └── {session_id}/
+│           ├── documents/               # Govt ID proof, candidate selfie
+│           └── turns/                   # turn_1.webm, turn_1.mp3, turn_2.webm...
+│
+└── frontend/src/
+    ├── 📁 components/
+    │   ├── ScreeningDashboard.jsx       # Updated with "See Interview Result" modal trigger & mobile field
+    │   └── 📁 interview/                # 👔 Recruiter Components (ProfileIQ)
+    │       ├── InviteInterviewModal.jsx # Schedule & Send invitation modal
+    │       ├── InterviewStatusBadge.jsx # Visual status pill (CREATED, PROCESSING, COMPLETED, etc.)
+    │       └── InterviewReportModal.jsx # Comprehensive AI Report (Radar charts, Transcripts, Video playback)
+    │
+    └── 📁 candidate_portal/             # 📱 Dedicated Candidate Web Portal (/interview?token=xyz)
+        ├── CandidateInterviewApp.jsx    # Candidate flow controller & token validator
+        ├── candidate_portal.css         # Dark modern styling for candidate recording
+        ├── 📁 hooks/
+        │   ├── useMediaRecorder.js      # WebRTC MediaRecorder hook for mic/webcam recording
+        │   └── useInterviewSession.js   # Manages turn progression, questions, and chunk uploads
+        └── 📁 steps/
+            ├── 1_WelcomeAndCheck.jsx    # Step 1: Camera/Mic permission & hardware check
+            ├── 2_IdVerification.jsx     # Step 2: Govt ID upload & live webcam selfie capture
+            ├── 3_InterviewRecording.jsx # Step 3: Question prompts, countdown timer, video recording
+            └── 4_CompletionScreen.jsx   # Step 4: Submission completed screen
+
+
+===================================================================================================================================================================================================
+5. RECOMMENDED TOOLS & TECHNOLOGY STACK
+===================================================================================================================================================================================================
+
+• Frontend Media Recording : HTML5 MediaRecorder API (WebRTC) -> Captures chunked WebM/MP4 natively in-browser.
+• Audio Extraction (Backend) : FFmpeg / ffmpeg-python -> High-speed extraction of 16kHz mono audio for Whisper.
+• Speech-to-Text (STT)      : OpenAI Whisper API / faster-whisper -> Accurate transcription with confidence & timestamps.
+• LLM Assessment Engine     : OpenAI GPT-4o / Google Gemini with Pydantic JSON Mode -> Guaranteed structured scoring outputs.
+• Asynchronous Queue        : FastAPI BackgroundTasks (MVP) / Celery + Redis (Production scale).
+• Database                  : PostgreSQL with dedicated "interview" schema.
+
+
+===================================================================================================================================================================================================
+6. STEP-BY-STEP IMPLEMENTATION ROADMAP
+===================================================================================================================================================================================================
+
+[✓] Phase 1: Database Setup
+    - Created PostgreSQL DDL in db/video feature tables.sql (interview schema, 5 tables, indexes, constraints).
+    - Added "See Interview Result" button & "Candidate Mobile Number" field in ScreeningDashboard.jsx.
+
+[✓] Phase 2: Frontend Architecture & Scaffolding
+    - Created recruiter modals (InviteInterviewModal.jsx, InterviewReportModal.jsx, InterviewStatusBadge.jsx).
+    - Built candidate portal (CandidateInterviewApp.jsx, hooks, steps, and route in App.jsx).
+
+[ ] Phase 3: DB Repository & Data Models
+    - Implement db/interview_models.py (Pydantic schemas for sessions, turns, reports).
+    - Implement db/interview_repo.py (CRUD operations for PostgreSQL).
+
+[ ] Phase 4: AI Question Generation & Recruiter Invites
+    - Implement ai_interview/question_generator.py (JD + Resume -> 5 tailored questions).
+    - Implement routes/interview/recruiter_routes.py (Create session, send email invite).
+
+[ ] Phase 5: Candidate Portal APIs & Media Upload Handlers
+    - Implement routes/interview/candidate_routes.py (Token validation, document upload, turn-by-turn video upload).
+
+[ ] Phase 6: AI Audio/Video Processing Worker & Pipeline
+    - Implement service/interview/media_service.py (FFmpeg audio splitter).
+    - Implement ai_interview/transcriber.py (Whisper STT).
+    - Implement ai_interview/report_generator.py (LLM Evaluation & score synthesis).
+    - Connect async pipeline_worker.py upon candidate submission.
+===================================================================================================================================================================================================

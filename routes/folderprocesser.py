@@ -190,7 +190,7 @@ async def get_report_results(batch_id: str, session = Depends(login_required)):
                 res['matched_skills'] = [s.strip() for s in res['matched_skills'].split(",") if s.strip()]
             results.append(res)
             
-        return {"results": results}
+        return {"results": results, "batch_id": str(batch_id)}
 
 @folder_processer_router.get("/download_report/{filename}")
 async def download_report(filename: str, session = Depends(login_required)):
@@ -294,6 +294,7 @@ async def process_folder(
             "message": "Screening completed",
             "results": results,
             "report_name": report_name,
+            "batch_id": str(batch_id),
             "download_url": f"/folder/download_report/{output_filename}"
         })
     except Exception as e:

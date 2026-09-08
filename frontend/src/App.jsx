@@ -8,6 +8,7 @@ import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import ScreeningDashboard from './components/ScreeningDashboard';
 import PdfPreviewModal from './components/PdfPreviewModal';
+import CandidateInterviewApp from './candidate_portal/CandidateInterviewApp';
 import { api, BASE_URL } from './api';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import './App.css';
@@ -45,6 +46,7 @@ function Dashboard({
       {view === 'dashboard' ? (
         <ScreeningDashboard
           results={screeningResults}
+          batchId={activeReportId || (screeningResults?.[0]?.batch_id)}
           onBack={() => setView('chat')}
           onDownload={onDownload}
           onConvertToEstuate={handleConvertToEstuate}
@@ -374,6 +376,9 @@ function App() {
       if (data.results && data.results.length > 0) {
         setScreeningResults(data.results);
         setDownloadReportUrl(data.download_url);
+        if (data.batch_id) {
+          setActiveReportId(data.batch_id);
+        }
 
         setUploadProgress({ active: true, message: 'Screening Complete', status: 'success' });
 
@@ -558,6 +563,9 @@ function App() {
             />
           ) : <Navigate to="/login" replace />
         } />
+
+        {/* Public Candidate Video Interview Portal */}
+        <Route path="/interview" element={<CandidateInterviewApp />} />
 
         <Route path="*" element={<Navigate to={authStatus ? "/" : "/login"} replace />} />
       </Routes>

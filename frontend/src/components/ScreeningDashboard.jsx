@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Download, FileCheck, Phone, Mail, Award, AlertCircle, Building2, Calendar, LayoutDashboard, X, User, Briefcase, Clock, ChevronUp, ChevronDown, Filter, Search } from 'lucide-react';
+import InterviewReportModal from './interview/InterviewReportModal';
 
-const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, onSendInvite }) => {
+const ScreeningDashboard = ({ results, batchId, onBack, onDownload, onConvertToEstuate, onSendInvite, onSeeResult }) => {
+  const currentBatchId = batchId || results?.[0]?.batch_id || '';
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [selectedReportCandidate, setSelectedReportCandidate] = useState(null);
   const [inviteForm, setInviteForm] = useState({
+    job_id: '',
     name: '',
     email: '',
+    phone: '',
     position: '',
     client: '',
     experience: ''
@@ -68,9 +74,12 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
 
   const openInviteModal = (candidate) => {
     setSelectedCandidate(candidate);
+    const resolvedBatchId = candidate.batch_id || currentBatchId || '';
     setInviteForm({
+      job_id: resolvedBatchId,
       name: candidate.name || '',
       email: candidate.email || '',
+      phone: candidate.phone || candidate.phone_number || '',
       position: '',
       client: '',
       experience: ''
@@ -115,7 +124,29 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
           <div className="header-title">
             <LayoutDashboard size={22} className="title-icon" />
             <div>
-              <h1>Screening Report</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h1>Screening Report</h1>
+                {currentBatchId && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(196, 18, 48, 0.08)',
+                      color: 'var(--brand-primary)',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      fontWeight: '600',
+                      border: '1px solid rgba(196, 18, 48, 0.2)'
+                    }}
+                    title={`Batch / Job ID: ${currentBatchId}`}
+                  >
+                    Job ID: {currentBatchId}
+                  </span>
+                )}
+              </div>
               <p>{results.length} Candidates Screened</p>
             </div>
           </div>
@@ -291,6 +322,17 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
                       >
                         Send Interview Invite
                       </button>
+                      <button
+                        onClick={() => {
+                          setSelectedReportCandidate(candidate);
+                          setIsReportModalOpen(true);
+                          if (onSeeResult) onSeeResult(candidate);
+                        }}
+                        className="see-result-btn"
+                        title="View AI Video Interview Report & Analytics"
+                      >
+                        See Interview Result
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -317,6 +359,28 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
             <form onSubmit={handleInviteSubmit}>
               <div className="modal-body">
                 <div className="input-group">
+                  <label>Job ID / Batch ID (Auto-assigned)</label>
+                  <div className="input-with-icon">
+                    <Briefcase size={16} className="input-icon" />
+                    <input
+                      type="text"
+                      name="job_id"
+                      value={inviteForm.job_id || currentBatchId || 'N/A'}
+                      readOnly
+                      disabled
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#475569',
+                        cursor: 'not-allowed',
+                        fontFamily: 'monospace',
+                        fontWeight: 600,
+                        border: '1px solid #cbd5e1'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
                   <label>Candidate Name</label>
                   <div className="input-with-icon">
                     <User size={16} className="input-icon" />
@@ -342,6 +406,20 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
                       onChange={handleInputChange}
                       required
                       placeholder="candidate@example.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label>Candidate Mobile Number</label>
+                  <div className="input-with-icon">
+                    <Phone size={16} className="input-icon" />
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={inviteForm.phone}
+                      onChange={handleInputChange}
+                      placeholder="e.g. +91 9876543210 / +1 (555) 000-0000"
                     />
                   </div>
                 </div>
@@ -405,6 +483,15 @@ const ScreeningDashboard = ({ results, onBack, onDownload, onConvertToEstuate, o
           </div>
         </div>
       )}
+      {/* AI Interview Report Modal */}
+      <InterviewReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setSelectedReportCandidate(null);
+        }}
+        candidate={selectedReportCandidate}
+      />
     </div>
   );
 };

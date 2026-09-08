@@ -1980,6 +1980,27 @@ h4 {
   box-shadow: 0 4px 12px rgba(196, 18, 48, 0.2);
 }
 
+.see-result-btn {
+  padding: 0.6rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.see-result-btn:hover {
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.18);
+}
+
 .download-report-btn {
   display: flex;
   align-items: center;
