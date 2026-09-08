@@ -615,6 +615,10 @@ RECRUITMENT SCREENING RULES:
 def extract_llm_suggested_chunks(result: Dict[str, Any]) -> List[str]:
     """Parse the CITED_CHUNKS section from the LLM output"""
     output = result.get("output", "")
+    if isinstance(output, list):
+        output = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in output)
+    elif not isinstance(output, str):
+        output = str(output)
     
     # Updated regex pattern with re.DOTALL to handle multi-line cases
     match = re.search(r'CITED_CHUNKS:\s*\[(.*?)\]', output, re.DOTALL)

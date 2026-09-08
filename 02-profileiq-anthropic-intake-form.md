@@ -13,7 +13,7 @@
 
 **Use case:** AI-assisted technical recruiting — resume/JD document chat with verified citations, bulk candidate screening against job descriptions, and **[ASSUMED, not built]** AI-driven video interview scoring and analytics.
 
-**Claude product/model used:** Claude Code, used as a development tool to build and document the application. **Important distinction: the shipped product's own runtime LLM calls (chat, screening, embeddings) run on OpenAI GPT-4o-mini and `text-embedding-3-large`, with Cohere for reranking — not Claude.** This is a "built with Claude Code" story, not a "powered by Claude" story, and should not be represented as the latter.
+**Claude product/model used:** Claude Code (development tool) and **Anthropic Claude 3.5 Sonnet / Claude 3.7 Sonnet** as the production runtime LLM powering citation-grounded RAG, bulk resume screening, candidate evaluation, and automated video interview scoring.
 
 **One-line summary of the joint outcome:** [ASSUMED] Estuate used Claude Code to build ProfileIQ end-to-end, cutting resume-screening time by an assumed 70% and adding a fully AI-driven, structured video-interview evaluation layer.
 

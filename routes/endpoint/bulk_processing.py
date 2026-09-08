@@ -1,7 +1,7 @@
 import asyncio
 import os
 import pandas as pd
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 import json
 import uuid
 from db.config import Database
@@ -91,7 +91,12 @@ async def process_resumes_to_excel(job_description: str, file_names: list, user_
     This ensures that the LLM focuses on one candidate at a time, 
     reducing errors and ensuring clean JSON output for each.
     """
-    client = ChatOpenAI(model="gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
+    client = ChatAnthropic(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+        api_key=os.getenv("ANTHROPIC_API_KEY"),
+        temperature=0.0,
+        max_tokens=4096
+    )
     agent = ResumeMappingAgent(client=client)
     
     all_results = []

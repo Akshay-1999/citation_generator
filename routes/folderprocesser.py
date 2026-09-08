@@ -22,7 +22,7 @@ from routes.endpoint.bulk_processing import process_resumes_to_excel
 from document_processing.document_loader import MemoryEfficientFileloader
 from db.config import Database
 from agents.agent_utils import get_jd_analysis_system_prompt
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langsmith import traceable
 from dotenv import load_dotenv
@@ -35,7 +35,12 @@ folder_processer_router = APIRouter()
 
 @traceable(run_type="chain", name="Experiance_position_mapping_agent")
 def process_query(query: str):
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
+    llm = ChatAnthropic(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+        api_key=os.getenv("ANTHROPIC_API_KEY"),
+        temperature=0.0,
+        max_tokens=4096
+    )
     prompt = ChatPromptTemplate.from_messages([
         ("system", get_jd_analysis_system_prompt()),
         ("human", "{input}")
@@ -44,7 +49,10 @@ def process_query(query: str):
     response = chain.invoke({
         "input": query
     })
-    return response.content
+    content = response.content
+    if isinstance(content, list):
+        content = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in content)
+    return str(content).strip()
 
 # Resolve project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -106,7 +114,12 @@ async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str)
 async def analyze_jd(jd_text: str) -> Dict[str, Any]:
     """Use LLM to extract position, experience and client from JD."""
     try:
-        client = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
+        client = ChatAnthropic(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            temperature=0.0,
+            max_tokens=4096
+        )
         prompt = get_jd_analysis_system_prompt()
         messages = [
             {"role": "system", "content": prompt},
@@ -115,6 +128,9 @@ async def analyze_jd(jd_text: str) -> Dict[str, Any]:
         response = await client.ainvoke(messages)
         # Handle potential markdown code blocks in LLM output
         content = response.content
+        if isinstance(content, list):
+            content = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in content)
+        content = str(content)
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:

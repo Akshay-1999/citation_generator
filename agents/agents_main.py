@@ -1,6 +1,6 @@
 import re
 import json
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
@@ -107,7 +107,15 @@ class RAGAgent:
             
             result["matches"] = matches
             result["used_search_uploaded_documents"] = used_search_uploaded_documents
-            answer = result.get("output", "").strip()
+            
+            raw_output = result.get("output", "")
+            if isinstance(raw_output, list):
+                answer = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in raw_output).strip()
+            elif isinstance(raw_output, str):
+                answer = raw_output.strip()
+            else:
+                answer = str(raw_output).strip()
+                
             if used_search_uploaded_documents:
                 logger.info(f"Document search returned {len(matches)} matches")
                 suggested_chunks = extract_llm_suggested_chunks(result)
@@ -161,7 +169,14 @@ class ResumeMappingAgent:
                 "job_description" : job_description,
                 "file_names" : file_names
             })
-            answer = result.get("output" , "").strip()
+            raw_output = result.get("output" , "")
+            if isinstance(raw_output, list):
+                answer = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in raw_output).strip()
+            elif isinstance(raw_output, str):
+                answer = raw_output.strip()
+            else:
+                answer = str(raw_output).strip()
+
             matches = []
             used_resume_mapping_search = False
             for action , output in result.get("intermediate_steps" , []):
@@ -172,7 +187,6 @@ class ResumeMappingAgent:
                     break
             result["matches"] = matches
             result["used_resume_mapping_search"] = used_resume_mapping_search
-            answer = result.get("output", "").strip()
             
             # Attempt to parse answer as JSON if it looks like JSON
             try:

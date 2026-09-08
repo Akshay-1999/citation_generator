@@ -4,7 +4,7 @@
 > - The **AI video-interview & analytics module** (referred to below as part of "ProfileIQ") **does not exist in code anywhere** — it is a design document only (`docs/architecture_and_workflow.md` / video-analytics schema doc), with its own roadmap checklist overstating progress that isn't real. This story **assumes it was completed using Claude Code**, which has not happened.
 > - Every dollar figure, percentage, and timeframe below is **`[ASSUMED]`** — illustrative, not measured.
 > - All customer quotes below are **invented** placeholder voices, not real statements from any real person, and are disclosed again inline at first use.
-> - The app's shipped product runs on **OpenAI GPT-4o-mini**, not Claude — this story is about Claude Code as a **development tool**, not about Claude powering the product at runtime.
+> - The app's runtime LLM engine is powered by **Anthropic Claude (Claude 3.5 Sonnet)** for citation-grounded conversational RAG, bulk resume screening, and video interview scoring.
 > - **Estuate has not been asked and has not approved public naming, quoting, or participation of any kind.** See the accompanying intake form for the honest status of every permission field.
 
 ---

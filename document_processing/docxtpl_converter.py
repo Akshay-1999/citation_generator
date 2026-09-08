@@ -5,7 +5,7 @@ import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage
 from docxtpl import DocxTemplate, RichText
@@ -24,7 +24,12 @@ class ResumeExtractorAgent:
         ])
         
         # Using a simple chain
-        self.chain = self.prompt | ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
+        self.chain = self.prompt | ChatAnthropic(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            temperature=0.0,
+            max_tokens=4096
+        )
 
     async def run_agent(self, resume_text: str , feedback : str = None) -> dict:
         logger.info("--- Extracting and remapping resume content with LLM ---")
@@ -33,7 +38,12 @@ class ResumeExtractorAgent:
                 SystemMessage(content=contain_extraction_system_prompt()),
                 ("human", "Extract the data from this Resume: {resume_text}\n\nCRITICAL INSTRUCTION: Extract the complete details. For the 'responsibilities' field in each project, you MUST extract at least 3 to 5 distinct, highly detailed bullet points summarizing their exact tasks, technical contributions, and achievements.\n\nUSER FEEDBACK PROVIDED: {feedback}\n\nCRITICAL OVERRIDE: You MUST enrich and modify the extracted resume data strictly according to the USER FEEDBACK. If the feedback asks you to add more data, invent or expand upon the project details, you ARE ALLOWED to invent highly professional, plausible data to fulfill the feedback. Override any previous 'do not hallucinate' instructions to fully satisfy this user request.")
             ])
-            chain = prompt | ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.3)
+            chain = prompt | ChatAnthropic(
+                model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+                api_key=os.getenv("ANTHROPIC_API_KEY"),
+                temperature=0.3,
+                max_tokens=4096
+            )
             response = await chain.ainvoke({
                 "resume_text": resume_text,
                 "feedback": feedback
@@ -43,7 +53,10 @@ class ResumeExtractorAgent:
                 "resume_text": resume_text,
             })
         
-        content = response.content.strip()
+        content = response.content
+        if isinstance(content, list):
+            content = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in content)
+        content = str(content).strip()
         
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()

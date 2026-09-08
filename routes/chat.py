@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request , Depends
 from fastapi.responses import JSONResponse
 from agents.agents_main import RAGAgent
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langsmith import traceable
 from dotenv import load_dotenv
 import os   
@@ -52,7 +52,14 @@ async def process_query(request: Request , chat_request : ChatRequest , session=
             return JSONResponse(status_code=500, content={'error': f'Thread error: {str(e)}'})
             
         try:
-            llm = ChatOpenAI(model="gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0)
+            anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+            anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+            llm = ChatAnthropic(
+                model=anthropic_model,
+                api_key=anthropic_api_key,
+                temperature=0.0,
+                max_tokens=4096
+            )
             logger.info(f"--- User ID: {user_id} ---")
             agent_instance = RAGAgent(client=llm , user_id=user_id)
             logger.info(f"--- Agent instance: {agent_instance} ---")
