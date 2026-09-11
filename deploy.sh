@@ -6,7 +6,7 @@ echo "Starting deployment..."
 # 1. Sync with remote Git branch
 echo "Pulling latest code from Git..."
 git fetch origin
-git reset --hard origin/fix-auth-cors
+git reset --hard origin/option/claude-llm
 
 # 1.5. Install Python dependencies
 echo "Installing Python dependencies..."
