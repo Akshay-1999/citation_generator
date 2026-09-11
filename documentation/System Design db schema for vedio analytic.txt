@@ -120,7 +120,7 @@ Schema Relationship Diagram:
 ===================================================================================================================================================================================================
 
 Actors:
-1. Recruiter (Authenticated via ProfileIQ JWT / Session)
+1. Recruiter (Authenticated via RecruitmindIQ JWT / Session)
 2. Candidate (Authenticated via Time-limited Interview Token)
 3. AI Worker / Processing Service (Internal Pipeline)
 
@@ -188,7 +188,7 @@ Actors:
 ===================================================================================================================================================================================================
 
                         ┌──────────────────────────────────────────────┐
-                        │      ProfileIQ Recruiter Dashboard           │
+                        │      RecruitmindIQ Recruiter Dashboard           │
                         │    - "Send Interview Invite" Modal           │
                         │    - "See Interview Result" Analytics Modal  │
                         └──────────────────────┬───────────────────────┘
@@ -266,7 +266,7 @@ citation_generator/
 └── frontend/src/
     ├── 📁 components/
     │   ├── ScreeningDashboard.jsx       # Updated with "See Interview Result" modal trigger & mobile field
-    │   └── 📁 interview/                # 👔 Recruiter Components (ProfileIQ)
+    │   └── 📁 interview/                # 👔 Recruiter Components (RecruitmindIQ)
     │       ├── InviteInterviewModal.jsx # Schedule & Send invitation modal
     │       ├── InterviewStatusBadge.jsx # Visual status pill (CREATED, PROCESSING, COMPLETED, etc.)
     │       └── InterviewReportModal.jsx # Comprehensive AI Report (Radar charts, Transcripts, Video playback)
