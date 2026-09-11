@@ -13,7 +13,7 @@ const mosaicTiles = [
   { bg: '#C41230', text: 'Simplified Hiring', icon: UserCheck, size: 'tall', color: '#ffffff' },
   { bg: '#1f2937', text: '', icon: Search, size: 'normal', color: '#ffffff' },
   { bg: 'rgba(196,18,48,0.4)', text: 'Data Analytics', icon: TrendingUp, size: 'normal', color: '#ffffff' },
-  { bg: '#ffffff', text: 'RecruitmindIQ', icon: CheckCircle, size: 'normal', color: '#C41230' },
+  { bg: '#ffffff', text: 'RecruitMind IQ', icon: CheckCircle, size: 'normal', color: '#C41230' },
   { bg: '#C41230', text: '', icon: Users, size: 'tall', color: '#ffffff' },
   { bg: '#1f2937', text: 'Automated Reports', icon: PieChart, size: 'normal', color: '#ffffff' },
 ];
@@ -96,7 +96,7 @@ const Login = ({ onLoginSuccess }) => {
                     <div className="login-card">
                         <div className="login-header">
                             <div className="estuate-logo">ESTUATE</div>
-                            <h1 className="login-subheader">RecruitmindIQ</h1>
+                            <h1 className="login-subheader">RecruitMind IQ</h1>
                             <p>Sign in to continue to your dashboard</p>
                         </div>
 
@@ -137,7 +137,7 @@ const Login = ({ onLoginSuccess }) => {
                         </form>
 
                         <div className="login-footer slide-in-4">
-                            <p>&copy; 2026 RecruitmindIQ. All rights reserved.</p>
+                            <p>&copy; 2026 RecruitMind IQ. All rights reserved.</p>
                         </div>
                     </div>
                 </div>

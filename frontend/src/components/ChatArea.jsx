@@ -36,7 +36,7 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                         <div className="welcome-icon-wrapper">
                             <Sparkles size={40} className="welcome-icon" />
                         </div>
-                        <h2>Welcome to RecruitmindIQ</h2>
+                        <h2>Welcome to RecruitMind IQ</h2>
                         <p>Your AI-powered recruitment assistant. Ask questions, analyze resumes, or generate screening reports effortlessly.</p>
                     </div>
                 ) : (
@@ -93,7 +93,7 @@ const ChatArea = ({ messages, isTyping, onSendMessage, onAttachFile, onOpenFolde
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Message RecruitmindIQ..."
+                        placeholder="Message RecruitMind IQ..."
                         rows={1}
                         style={{ height: 'auto' }}
                     />

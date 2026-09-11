@@ -93,7 +93,7 @@ const Sidebar = ({
             <div className="sidebar-header">
                 <Link to="/" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>
                     <Briefcase className="logo-icon" />
-                    <span>RecruitmindIQ</span>
+                    <span>RecruitMind IQ</span>
                 </Link>
             </div>
 
