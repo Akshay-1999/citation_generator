@@ -113,7 +113,10 @@ ALTER TABLE core.bulk_screening_results
 ADD CONSTRAINT fk_batch_id
 FOREIGN KEY (batch_id)
 REFERENCES core.screening_batches(id)
-ON DELETE CASCADE;
+ON DELETE CASCADE; 
+
+ALTER TABLE core.bulk_screening_results
+ADD COLUMN username VARCHAR(255);
 
 
 -- =========================
@@ -134,6 +137,13 @@ CREATE TABLE IF NOT EXISTS core.screening_batches (
 );
 
 alter table core.screening_batches add column client_name text;
+
+ALTER TABLE core.screening_batches
+ADD COLUMN status BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE core.screening_batches
+ADD COLUMN job_name text;
+ALTER TABLE core.screening_batches
+ADD COLUMN updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP;
 
 -- =========================
 -- converted_resumes Table

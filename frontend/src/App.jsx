@@ -127,7 +127,7 @@ function Dashboard({
   );
 }
 
-function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, activeReportId, onDeleteReport, children }) {
+function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, activeReportId, onDeleteReport, onRefreshReports, children }) {
   if (userRole !== 'admin') return <Navigate to="/" replace />;
 
   return (
@@ -147,7 +147,9 @@ function AdminLayout({ userName, userEmail, userRole, onLogout, pastReports, act
         onSelectReport={(id) => { window.location.href = `/?report=${id}`; }}
         onDeleteReport={onDeleteReport}
       />
-      {children}
+      {React.isValidElement(children)
+        ? React.cloneElement(children, { onRefreshReports })
+        : children}
     </div>
   );
 }
@@ -263,6 +265,13 @@ function App() {
 
   useEffect(() => {
     checkAuth();
+
+    // Listen for custom event to soft-refresh reports dynamically from anywhere in the app
+    const handleReportsUpdated = () => {
+      fetchReports();
+    };
+    window.addEventListener('reports-updated', handleReportsUpdated);
+    return () => window.removeEventListener('reports-updated', handleReportsUpdated);
   }, []);
 
   // Handle report ID in URL if coming from Admin or other link
@@ -368,10 +377,10 @@ function App() {
     }
   };
 
-  const handleProcessFolder = async (files, jd, jdFile) => {
+  const handleProcessFolder = async (files, jd, jdFile, jobId = null, batchName = null, extraMetadata = {}) => {
     setUploadProgress({ active: true, message: `Uploading ${files.length} resumes...`, status: 'uploading' });
     try {
-      const data = await api.processFolder(files, jd, jdFile);
+      const data = await api.processFolder(files, jd, jdFile, jobId, batchName, extraMetadata);
 
       if (data.results && data.results.length > 0) {
         setScreeningResults(data.results);
@@ -412,6 +421,10 @@ function App() {
   };
 
   const handleDeleteReport = async (reportId) => {
+    if (user.role !== 'admin') {
+      alert('Permission denied: Only administrators can delete screening reports.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this screening report?')) return;
     
     setUploadProgress({ active: true, message: 'Deleting Report...', status: 'uploading' });
@@ -503,8 +516,9 @@ function App() {
             pastReports={pastReports}
             activeReportId={activeReportId}
             onDeleteReport={handleDeleteReport}
+            onRefreshReports={fetchReports}
           >
-            <AdminPanel />
+            <AdminPanel onRefreshReports={fetchReports} />
           </AdminLayout>
         } />
 

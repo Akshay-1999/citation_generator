@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from db.config import Database
 from utils.logging_utils import set_system_logger
-logger = set_system_logger("system_logger")
+logger = set_system_logger("user_logger")
 
 async def create_user(user_name: str, email: str, user_role: str, password: str): 
     logger.info("--- Getting DB connection pool for user creation ---")

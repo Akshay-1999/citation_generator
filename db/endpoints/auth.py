@@ -13,7 +13,7 @@ async def authenticate_user(email: EmailStr, password: str):
             logger.info(f"--- Authenticating user with email: {email} ---")
             row = await connection.fetchrow(
                 """
-                SELECT user_id, username, password , user_role , is_active , email
+                SELECT user_id, username, password , user_role , is_active , email , username 
                 FROM core.users
                 WHERE email = $1
                 AND password = crypt($2, password)

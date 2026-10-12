@@ -2,6 +2,7 @@ import shutil
 import tempfile
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -70,8 +71,50 @@ def sanitize_filename(name: str) -> str:
 def calculate_md5_bytes(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
 
-async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str) -> str:
-    """Save UploadFile to temp and extract text using the document loader."""
+def serialize_screening_result(r: Any) -> dict:
+    """Safely convert a DB row from core.bulk_screening_results into a JSON-serializable dict."""
+    res = dict(r)
+    record_id = res.get('processing_id') or res.get('id')
+    res['id'] = str(record_id) if record_id else str(uuid.uuid4())
+    res['processing_id'] = res['id']
+    if res.get('user_id') is not None:
+        res['user_id'] = str(res['user_id'])
+    if res.get('batch_id') is not None:
+        res['batch_id'] = str(res['batch_id'])
+    if res.get('created_at') is not None:
+        res['created_at'] = res['created_at'].isoformat() if hasattr(res['created_at'], 'isoformat') else str(res['created_at'])
+    res['username'] = res.get('username') or 'Unknown'
+    if isinstance(res.get('skills'), str):
+        res['skills'] = [s.strip() for s in res['skills'].split(",") if s.strip()]
+    elif not isinstance(res.get('skills'), list):
+        res['skills'] = []
+    if isinstance(res.get('matched_skills'), str):
+        res['matched_skills'] = [s.strip() for s in res['matched_skills'].split(",") if s.strip()]
+    elif not isinstance(res.get('matched_skills'), list):
+        res['matched_skills'] = []
+    return res
+
+async def extract_text_from_attachment_jd(upload_file: Any, user_id: str = "default_user") -> str:
+    """Save UploadFile to temp (or read from path) and extract text using the document loader."""
+    if not upload_file:
+        return ""
+
+    # If already a string path or direct text
+    if isinstance(upload_file, str):
+        if os.path.exists(upload_file):
+            try:
+                loader = MemoryEfficientFileloader(user_id=user_id)
+                extracted_text = ""
+                async for doc in loader._process_file(upload_file, user_id=user_id, file_name=os.path.basename(upload_file)):
+                    if doc.page_content:
+                        extracted_text += doc.page_content + "\n\n"
+                return extracted_text.strip()
+            except Exception as e:
+                logger.error(f"Error extracting text from path {upload_file}: {e}")
+                return ""
+        # If it's already plain text content
+        return upload_file.strip()
+
     content = await upload_file.read()
     if not content:
         return ""
@@ -79,7 +122,8 @@ async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str)
     # Reset file pointer for any subsequent reads
     await upload_file.seek(0)
     
-    suffix = Path(upload_file.filename).suffix.lower()
+    filename = getattr(upload_file, 'filename', 'document.txt')
+    suffix = Path(filename).suffix.lower() if filename else ".txt"
     temp_path = None
     try:
         # Use system temp directory for better reliability in production
@@ -94,15 +138,15 @@ async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str)
         logger.info(f"--- Extracting JD_content from temp file: {temp_path} ---")
         loader = MemoryEfficientFileloader(user_id=user_id)
         extracted_text = ""
-        async for doc in loader._process_file(temp_path, user_id=user_id, file_name=upload_file.filename):
+        async for doc in loader._process_file(temp_path, user_id=user_id, file_name=filename):
             if doc.page_content:
                 extracted_text += doc.page_content + "\n\n"
         
         if not extracted_text.strip():
-             logger.warning(f"--- No text extracted from JD file: {upload_file.filename} ---")
+             logger.warning(f"--- No text extracted from JD file: {filename} ---")
         return extracted_text.strip()
     except Exception as e:
-        logger.error(f"=== Error extracting JD text from {upload_file.filename}: {e} ===", exc_info=True)
+        logger.error(f"=== Error extracting JD text from {filename}: {e} ===", exc_info=True)
         return ""
     finally:
         if temp_path and os.path.exists(temp_path):
@@ -111,35 +155,34 @@ async def extract_text_from_attachment_jd(upload_file: UploadFile, user_id: str)
             except Exception as cleanup_err:
                 logger.error(f"=== Error cleaning up temp JD file: {cleanup_err} ===")
 
-async def analyze_jd(jd_text: str) -> Dict[str, Any]:
-    """Use LLM to extract position, experience and client from JD."""
-    try:
-        client = ChatAnthropic(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
-            api_key=os.getenv("ANTHROPIC_API_KEY"),
-            temperature=0.0,
-            max_tokens=4096
-        )
-        prompt = get_jd_analysis_system_prompt()
-        messages = [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": f"Analyze this Job Description:\n\n{jd_text}"}
-        ]
-        response = await client.ainvoke(messages)
-        # Handle potential markdown code blocks in LLM output
-        content = response.content
-        if isinstance(content, list):
-            content = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in content)
-        content = str(content)
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        elif "```" in content:
-            content = content.split("```")[1].strip()
-        return json.loads(content)
-    except Exception as e:
-        logger.error(f"Error analyzing JD: {e}")
-        return {"position": "Unknown Position", "experience": 0, "client_name": "Unknown"}
-
+# async def analyze_jd(jd_text: str) -> Dict[str, Any]:
+#     """Use LLM to extract position, experience and client from JD."""
+#     try:
+#         client = ChatAnthropic(
+#             model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+#             api_key=os.getenv("ANTHROPIC_API_KEY"),
+#             temperature=0.0,
+#             max_tokens=4096
+#         )
+#         prompt = get_jd_analysis_system_prompt()
+#         messages = [
+#             {"role": "system", "content": prompt},
+#             {"role": "user", "content": f"Analyze this Job Description:\n\n{jd_text}"}
+#         ]
+#         response = await client.ainvoke(messages)
+#         # Handle potential markdown code blocks in LLM output
+#         content = response.content
+#         if isinstance(content, list):
+#             content = "".join(item.get("text", str(item)) if isinstance(item, dict) else str(item) for item in content)
+#         content = str(content)
+#         if "```json" in content:
+#             content = content.split("```json")[1].split("```")[0].strip()
+#         elif "```" in content:
+#             content = content.split("```")[1].strip()
+#         return json.loads(content)
+#     except Exception as e:
+#         logger.error(f"Error analyzing JD: {e}")
+#         return {"position": "Unknown Position", "experience": 0, "client_name": "Unknown"}
 
 @folder_processer_router.get("/list_reports")
 async def list_reports(session = Depends(login_required)):
@@ -147,16 +190,14 @@ async def list_reports(session = Depends(login_required)):
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    user_id = session.get('user_id')
     pool = await Database.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, report_name, position, experience, client_name, created_at 
             FROM core.screening_batches 
-            WHERE user_id = $1 
-            and is_deleted = False
+            WHERE is_deleted = False
             ORDER BY created_at DESC
-        """, uuid.UUID(user_id))
+        """)
         
         return [{
             "id": str(r['id']),
@@ -169,9 +210,12 @@ async def list_reports(session = Depends(login_required)):
 
 @folder_processer_router.put("/delete_report/{batch_id}")
 async def delete_report(batch_id: str, session = Depends(login_required)):
-    """Delete a screening report."""
+    """Delete a screening report (admin only)."""
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    user_role = session.get('role') if isinstance(session, dict) else None
+    if user_role != 'admin':
+        raise HTTPException(status_code=403, detail="Operation not permitted. Only administrators can delete screening reports.")
     user_id = session.get('user_id')
     from routes.endpoint.bulk_processing import delete_batch
     result = await delete_batch(batch_id, user_id)
@@ -191,21 +235,11 @@ async def get_report_results(batch_id: str, session = Depends(login_required)):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT * FROM core.bulk_screening_results 
-            WHERE batch_id = $1 AND user_id = $2
-        """, uuid.UUID(batch_id), uuid.UUID(user_id))
+            WHERE batch_id = $1
+            ORDER BY created_at DESC
+        """, uuid.UUID(batch_id))
         
-        results = []
-        for r in rows:
-            res = dict(r)
-            res['id'] = str(res.get('id'))
-            res['user_id'] = str(res.get('user_id'))
-            res['batch_id'] = str(res.get('batch_id'))
-            if isinstance(res.get('skills'), str):
-                res['skills'] = [s.strip() for s in res['skills'].split(",") if s.strip()]
-            if isinstance(res.get('matched_skills'), str):
-                res['matched_skills'] = [s.strip() for s in res['matched_skills'].split(",") if s.strip()]
-            results.append(res)
-            
+        results = [serialize_screening_result(r) for r in rows]
         return {"results": results, "batch_id": str(batch_id)}
 
 @folder_processer_router.get("/download_report/{filename}")
@@ -230,7 +264,16 @@ async def process_folder(
     job_description: str = Form(...),
     files: List[UploadFile] = File(...),
     session = Depends(login_required),
-    jd_file: Optional[UploadFile] = File(None)
+    client_name: Optional[str] = Form(None),
+    experience: Optional[str] = Form(None),
+    total_year_of_experience: Optional[str] = Form(None),
+    report_name: Optional[str] = Form(None),
+    position: Optional[str] = Form(None),
+    job_id: Optional[str] = Form(None),
+    batch_name: Optional[str] = Form(None),
+    username: Optional[str] = Form(None),
+    user_name: Optional[str] = Form(None),
+    # jd_file: Optional[UploadFile] = File(None)
 ):
     """
     Receive uploaded resume files + JD from the browser.
@@ -243,28 +286,44 @@ async def process_folder(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     user_id = session.get('user_id')
-    user_email = session.get('email')
+    user_email = session.get('email') if isinstance(session, dict) else None
+    resolved_username = username or user_name or (session.get('username') if isinstance(session, dict) else None) or (user_email.split('@')[0] if user_email else 'Unknown')
 
-    if jd_file:
-        job_description = await extract_text_from_attachment_jd(jd_file, user_id)
+    # if jd_file:
+    #     job_description = await extract_text_from_attachment_jd(jd_file, user_id)
     
     if not job_description: raise HTTPException(status_code=400, detail="No Job Description")
 
-    # 🚀 STEP 1: Analyze JD to get Position, Experience and Client
-    jd_analysis = await analyze_jd(job_description)
-    position = jd_analysis.get("position", "Unknown Position")
-    experience = jd_analysis.get("experience", 0)
-    client_name = jd_analysis.get("client_name", "Unknown")
+    # Extract metadata from incoming Form or fallback to session/defaults
+    batch_id = job_id or session.get('job_id')
 
-    # 🚀 STEP 2: Create Batch record
-    from routes.endpoint.bulk_processing import create_screening_batch
-    # Generate a descriptive report name
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    clean_position = sanitize_filename(position)
-    clean_client = sanitize_filename(client_name)
-    report_name = f"{clean_client}_{clean_position}_{experience}_{date_str}"
-    
-    batch_id, report_name = await create_screening_batch(user_id, report_name, position, experience, client_name, job_description)
+    # Look up canonical batch info from core.screening_batches if batch_id is provided
+    # so every user always opens and appends to the exact same report file
+    if batch_id:
+        try:
+            pool = await Database.get_pool()
+            async with pool.acquire() as conn:
+                batch_row = await conn.fetchrow(
+                    "SELECT report_name, position, client_name, experience FROM core.screening_batches WHERE id = $1 LIMIT 1",
+                    uuid.UUID(batch_id)
+                )
+                if batch_row and batch_row.get("report_name"):
+                    report_name = batch_row["report_name"]
+                    if not position or position == "Unknown Position":
+                        position = batch_row.get("position") or position
+                    if not client_name or client_name == "Unknown Client":
+                        client_name = batch_row.get("client_name") or client_name
+                    if not experience:
+                        experience = batch_row.get("experience") or experience
+        except Exception as lookup_err:
+            logger.warning(f"Could not lookup report_name for batch_id {batch_id}: {lookup_err}")
+
+    raw_report_name = report_name or batch_name or (session.get('report_name') if isinstance(session, dict) else None) or f"Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    clean_report_name = str(raw_report_name)[:-5] if str(raw_report_name).endswith('.xlsx') else str(raw_report_name)
+    report_name = clean_report_name
+    position = position or session.get('position') or "Unknown Position"
+    experience = total_year_of_experience or experience or session.get('total_year_of_experience') or 0
+    client_name = client_name or session.get('client_name') or "Unknown Client"
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     file_to_process = []
@@ -304,15 +363,38 @@ async def process_folder(
     try:
         output_filename = f"{report_name}.xlsx"
         output_path = os.path.join(REPORTS_DIR, output_filename)
-        results = await process_resumes_to_excel(job_description, file_to_map, user_id, output_path, batch_id)
+        results = await process_resumes_to_excel(
+            job_description=job_description,
+            file_names=file_to_map,
+            user_id=user_id,
+            output_file=output_path,
+            username=resolved_username,
+            batch_id=batch_id
+        )
+
+        # Retrieve all cumulative results for this batch from DB so UI displays both existing and new candidates
+        if batch_id:
+            try:
+                pool = await Database.get_pool()
+                async with pool.acquire() as conn:
+                    rows = await conn.fetch("""
+                        SELECT * FROM core.bulk_screening_results 
+                        WHERE batch_id = $1
+                        ORDER BY created_at DESC
+                    """, uuid.UUID(batch_id))
+                    
+                    if rows:
+                        results = [serialize_screening_result(r) for r in rows]
+            except Exception as fetch_err:
+                logger.warning(f"Could not fetch cumulative results for batch {batch_id}: {fetch_err}")
         
-        return JSONResponse(content={
+        return JSONResponse(content=jsonable_encoder({
             "message": "Screening completed",
             "results": results,
             "report_name": report_name,
-            "batch_id": str(batch_id),
+            "batch_id": str(batch_id) if batch_id else None,
             "download_url": f"/folder/download_report/{output_filename}"
-        })
+        }))
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

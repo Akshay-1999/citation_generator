@@ -25,10 +25,12 @@ async def get_or_create_candiate(
         )
         session_row = await connection.fetchrow(
             """
-            SELECT session_id , job_id , interview_token FROM interview.interview_sessions WHERE job_id = $1
+            SELECT session_id , job_id , interview_token , status FROM interview.interview_sessions WHERE job_id = $1
             """,
-            job_position,
-        )z
+            job_id
+        )
+        if candiate_row and session_row:
+            
         
 
     

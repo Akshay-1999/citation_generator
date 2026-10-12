@@ -89,12 +89,40 @@ export const api = {
         return handleResponse(res, 'Failed to delete report');
     },
 
-    processFolder: async (files, jd, jdFile) => {
+    processFolder: async (files, jd, jdFile, jobId = null, batchName = null, extraMetadata = {}) => {
         const formData = new FormData();
-        formData.append('job_description', jd);
+        formData.append('job_description', jd || '');
         if (jdFile) {
             formData.append('jd_file', jdFile);
         }
+        if (jobId) {
+            formData.append('job_id', jobId);
+        }
+        if (batchName) {
+            formData.append('batch_name', batchName);
+        }
+
+        // Client Name
+        const clientName = extraMetadata.client_name || extraMetadata.client || '';
+        formData.append('client_name', clientName);
+
+        // Total years of experience
+        const exp = extraMetadata.experience !== undefined && extraMetadata.experience !== null
+            ? extraMetadata.experience
+            : (extraMetadata.total_experience !== undefined ? extraMetadata.total_experience : (extraMetadata.min_experience !== undefined ? extraMetadata.min_experience : 0));
+        formData.append('experience', String(exp));
+        formData.append('total_experience', String(exp));
+        formData.append('total_year_of_experience', String(exp));
+
+        // Report Name
+        const reportName = extraMetadata.report_name || batchName || (clientName ? `${clientName}_Report` : 'Screening_Report');
+        formData.append('report_name', reportName);
+
+        // Position / Title
+        if (extraMetadata.position || extraMetadata.title) {
+            formData.append('position', extraMetadata.position || extraMetadata.title);
+        }
+
         for (const file of files) {
             formData.append('files', file);
         }
@@ -216,5 +244,143 @@ export const api = {
             body: JSON.stringify({ uuid, content }),
         });
         return handleResponse(res, 'Failed to update and regenerate resume');
+    },
+
+    // Regular user / Recruiter: Active jobs for folder processing dropdown (Strictly from DB)
+    fetchJobs: async () => {
+        try {
+            localStorage.removeItem('recai_jobs');
+        } catch (e) {}
+
+        try {
+            let res = await fetch(`${BASE_URL}/job/all_jobs`, { credentials: 'include' });
+            if (!res.ok) {
+                res = await fetch(`${BASE_URL}/job/active_jobs`, { credentials: 'include' });
+            }
+            if (res.ok) {
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            }
+        } catch (e) {
+            console.error('Error fetching jobs for user dropdown:', e);
+        }
+        return [];
+    },
+
+    // Admin Panel: Reads all jobs (active & inactive) strictly from DB
+    fetchAdminJobs: async () => {
+        try {
+            localStorage.removeItem('recai_jobs');
+        } catch (e) {}
+
+        try {
+            const res = await fetch(`${BASE_URL}/job/admin_jobs`, { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            }
+        } catch (e) {
+            console.error('Error fetching admin jobs:', e);
+        }
+        return [];
+    },
+
+    readAttachedFile: async (fileOrUrl) => {
+        if (fileOrUrl instanceof File) {
+            const formData = new FormData();
+            formData.append('file', fileOrUrl);
+            const res = await fetch(`${BASE_URL}/job/read_attached_file?job_description_url=${encodeURIComponent(fileOrUrl.name)}`, {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+            });
+            return handleResponse(res, 'Failed to read attached file');
+        } else {
+            const res = await fetch(`${BASE_URL}/job/read_attached_file?job_description_url=${encodeURIComponent(fileOrUrl)}`, {
+                method: 'GET',
+                credentials: 'include',
+            });
+            return handleResponse(res, 'Failed to read attached file');
+        }
+    },
+
+    createJob: async (jobData) => {
+        try {
+            localStorage.removeItem('recai_jobs');
+        } catch (e) {}
+
+        const now = new Date().toISOString();
+        const payload = {
+            user_id: jobData.user_id || 'admin',
+            job_name: jobData.title || jobData.job_name || jobData.job_code || 'Job Position',
+            job_description: jobData.jd_text || jobData.job_description || '',
+            job_status: typeof jobData.status === 'string' ? jobData.status : 'OPEN',
+            job_created_at: jobData.created_at || now,
+            job_updated_at: jobData.updated_at || now,
+            // Additional contextual fields
+            position: jobData.title || jobData.position || '',
+            client_name: jobData.client_name || '',
+            experience: String(jobData.min_experience || jobData.experience || 0),
+            jd_text: jobData.jd_text || jobData.job_description || '',
+            job_code: jobData.job_code || ''
+        };
+
+        const res = await fetch(`${BASE_URL}/job/create_job`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await handleResponse(res, 'Failed to create job');
+        try {
+            window.dispatchEvent(new CustomEvent('reports-updated', { detail: data }));
+        } catch (e) {}
+        return data;
+    },
+
+    deleteJob: async (jobId) => {
+        try {
+            localStorage.removeItem('recai_jobs');
+        } catch (e) {}
+
+        let res = await fetch(`${BASE_URL}/job/${encodeURIComponent(jobId)}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            res = await fetch(`${BASE_URL}/jobs/${encodeURIComponent(jobId)}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+        }
+        const data = await handleResponse(res, 'Failed to delete job');
+        try {
+            window.dispatchEvent(new CustomEvent('reports-updated', { detail: { deletedJobId: jobId } }));
+        } catch (e) {}
+        return data;
+    },
+
+    updateJobStatus: async (jobId, status) => {
+        try {
+            localStorage.removeItem('recai_jobs');
+        } catch (e) {}
+
+        let res = await fetch(`${BASE_URL}/job/${encodeURIComponent(jobId)}/status?status=${encodeURIComponent(status)}`, {
+            method: 'PUT',
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            res = await fetch(`${BASE_URL}/jobs/${encodeURIComponent(jobId)}/status?status=${encodeURIComponent(status)}`, {
+                method: 'PUT',
+                credentials: 'include',
+            });
+        }
+        const data = await handleResponse(res, 'Failed to update job status');
+        try {
+            window.dispatchEvent(new CustomEvent('reports-updated', { detail: { jobId, status } }));
+        } catch (e) {}
+        return data;
     }
 };
+

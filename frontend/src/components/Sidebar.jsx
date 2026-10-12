@@ -168,18 +168,20 @@ const Sidebar = ({
                                         {new Date(report.created_at).toLocaleDateString()}
                                     </span>
                                 </div>
-                                <div className="thread-actions">
-                                    <button 
-                                        className="thread-action-btn delete"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDeleteReport(report.id);
-                                        }}
-                                        title="Delete Report"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
+                                {userRole === 'admin' && (
+                                    <div className="thread-actions">
+                                        <button 
+                                            className="thread-action-btn delete"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteReport(report.id);
+                                            }}
+                                            title="Delete Report"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))
                     )}

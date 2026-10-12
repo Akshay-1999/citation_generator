@@ -112,12 +112,14 @@ from routes.file import file_router
 from routes.chat import chat_router
 from routes.folderprocesser import folder_processer_router
 from routes.fileconverstion import fileconversionrouter
-
+from db.jobendpoint import jobrouter
 app.include_router(userrouter, prefix="/user", tags=["user"])
 app.include_router(mainrouter, prefix="/main", tags=["main"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(file_router, prefix="/file", tags=["file"])
 app.include_router(chat_router, prefix="/chat", tags=["chat"])
+app.include_router(jobrouter, prefix="/job", tags=["job"])
+app.include_router(jobrouter, prefix="/jobs", tags=["jobs"])
 app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 app.include_router(fileconversionrouter, prefix="/conversion/api", tags=["conversion"])
 

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException , Depends , Request
 from pydantic import BaseModel , EmailStr , Field
 from typing import Optional , Literal
-from utils.logging_utils import set_system_logger
+from utils.logger_instances import user_logger
 from routes.auth import  login_required
 from db.endpoints.user import create_user
 import os
 
-logger = set_system_logger("system_logger")
+logger = user_logger
 
 userrouter = APIRouter()  
 
@@ -43,7 +43,7 @@ async def get_user_endpoint(request: Request , email: EmailStr , session = Depen
     if user_details_role not in ["admin"]:
         logger.error(f"=== Unauthorized user fetch attempt by user_id: {session.get('user_id')} ===")
         raise HTTPException(status_code=403, detail="Operation not permitted.")
-    from db.endpoints.user import get_user
+    from db.endpoints.user import get_user 
     try:
         logger.info(f"--- Fetching user with email: {email} ---")
         user_data = await get_user(email)

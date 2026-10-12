@@ -234,6 +234,11 @@ const ScreeningDashboard = ({ results, batchId, onBack, onDownload, onConvertToE
                           <Building2 size={12} /> {candidate.last_company}
                         </div>
                       )}
+                      {candidate.username && candidate.username !== 'Unknown' && (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#4f46e5', background: '#eef2ff', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', fontWeight: 500 }}>
+                          <User size={11} /> Screened by: {candidate.username}
+                        </div>
+                      )}
                     </div>
                   </td>
 
