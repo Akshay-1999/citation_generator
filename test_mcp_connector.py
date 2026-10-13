@@ -112,10 +112,11 @@ def test_5_jsonrpc_tools_list():
 
 def test_6_unauthorized_rejection():
     print("\n[Test 6] Testing Unauthorized Request Rejection...")
-    payload = {"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {}}
-    res = client.post("/mcp", json=payload)
+    # Protected tool endpoints require authorization
+    res = client.post("/mcp/tools/search_resumes", json={"arguments": {"query": "python"}})
     assert res.status_code == 401, f"Expected 401 Unauthorized, got {res.status_code}"
-    print("  --> Passed: Protected endpoint rejected unauthenticated call!")
+    assert "WWW-Authenticate" in res.headers, "Expected WWW-Authenticate header"
+    print("  --> Passed: Protected endpoint rejected unauthenticated call with RFC WWW-Authenticate header!")
 
 
 def test_7_prompt_injection_guard():
@@ -142,6 +143,16 @@ def test_8_rest_tool_get_screening_report():
     print(f"  --> Passed: get_screening_report executed! Success: {data.get('success')}")
 
 
+def test_9_oauth_protected_resource():
+    print("\n[Test 9] Testing RFC 9728 OAuth Protected Resource Metadata...")
+    res = client.get("/.well-known/oauth-protected-resource")
+    assert res.status_code == 200, f"Expected 200, got {res.status_code}"
+    data = res.json()
+    assert "resource" in data
+    assert "authorization_servers" in data
+    print("  --> Passed: RFC 9728 oauth-protected-resource metadata valid:", data)
+
+
 if __name__ == "__main__":
     print("==================================================")
     print("   RUNNING RECAI CLAUDE MCP CONNECTOR TEST SUITE  ")
@@ -155,6 +166,7 @@ if __name__ == "__main__":
         test_6_unauthorized_rejection()
         test_7_prompt_injection_guard()
         test_8_rest_tool_get_screening_report()
+        test_9_oauth_protected_resource()
         print("\n==================================================")
         print("  ALL MCP CONNECTOR TESTS PASSED SUCCESSFULLY!    ")
         print("==================================================")

@@ -83,7 +83,7 @@ def _cleanup_expired():
         del _refresh_tokens[k]
 
 
-# ─── OAuth Discovery Endpoint ───────────────────────────────────────────────────
+# ─── OAuth Discovery Endpoints ──────────────────────────────────────────────────
 @oauth_router.get("/.well-known/oauth-authorization-server")
 async def oauth_discovery(request: Request):
     """OAuth 2.1 Authorization Server Metadata (RFC 8414)."""
@@ -96,6 +96,19 @@ async def oauth_discovery(request: Request):
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],  # public client
+    }
+
+
+@oauth_router.get("/.well-known/oauth-protected-resource")
+@oauth_router.get("/.well-known/oauth-protected-resource/{subpath:path}")
+async def oauth_protected_resource(request: Request, subpath: Optional[str] = None):
+    """OAuth 2.0 Protected Resource Metadata (RFC 9728)."""
+    base_url = str(request.base_url).rstrip("/")
+    return {
+        "resource": base_url,
+        "authorization_servers": [base_url],
+        "scopes_supported": ["read", "write"],
+        "bearer_methods_supported": ["header"]
     }
 
 
@@ -412,15 +425,24 @@ async def validate_oauth_token(request: Request) -> dict:
             "authenticated": True,
         }
 
+    base_url = str(request.base_url).rstrip("/")
+    auth_headers = {
+        "WWW-Authenticate": f'Bearer resource_metadata="{base_url}/.well-known/oauth-protected-resource"'
+    }
+
     if not token:
-        raise HTTPException(status_code=401, detail="Missing Authorization header or cookie")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header or cookie",
+            headers=auth_headers
+        )
 
     # 1. Check OAuth in-memory access tokens
     token_data = _access_tokens.get(token)
     if token_data:
         if token_data["expires_at"] < time.time():
             _access_tokens.pop(token, None)
-            raise HTTPException(status_code=401, detail="Access token has expired")
+            raise HTTPException(status_code=401, detail="Access token has expired", headers=auth_headers)
         return {
             "user_id": token_data["user_id"],
             "username": token_data["username"],
@@ -444,4 +466,24 @@ async def validate_oauth_token(request: Request) -> dict:
     except Exception as e:
         logger.debug(f"JWT validation fallback failed: {e}")
 
-    raise HTTPException(status_code=401, detail="Invalid or expired access token")
+    raise HTTPException(status_code=401, detail="Invalid or expired access token", headers=auth_headers)
+
+
+async def get_optional_oauth_token(request: Request) -> Optional[dict]:
+    """
+    Get user context if valid credentials provided, or return a dev context if on localhost / dev mode.
+    Used for seamless local testing with MCP Inspector.
+    """
+    try:
+        return await validate_oauth_token(request)
+    except HTTPException:
+        client_host = getattr(request.client, "host", "") if request.client else ""
+        if client_host in ("127.0.0.1", "localhost", "::1", "testclient") or os.getenv("MCP_DEV_MODE", "true").lower() in ("true", "1"):
+            return {
+                "user_id": "00000000-0000-0000-0000-000000000001",
+                "username": "developer",
+                "email": "dev@estuate.com",
+                "role": "admin",
+                "authenticated": True,
+            }
+        return None

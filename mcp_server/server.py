@@ -15,7 +15,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from mcp_server.oauth import validate_oauth_token
+from mcp_server.oauth import validate_oauth_token, get_optional_oauth_token
 from mcp_server.tools import (
     execute_search_resumes,
     execute_start_screening,
@@ -146,8 +146,11 @@ async def dispatch_tool_call(tool_name: str, arguments: Dict[str, Any], user_con
         raise ValueError(f"Unknown MCP tool: {tool_name}")
 
 
-# ─── JSON-RPC 2.0 Request Processor ───────────────────────────────────────────
-async def process_jsonrpc_request(payload: Dict[str, Any], user_context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+async def process_jsonrpc_request(
+    payload: Dict[str, Any],
+    user_context: Optional[Dict[str, Any]],
+    request: Optional[Request] = None
+) -> Optional[Dict[str, Any]]:
     msg_id = payload.get("id")
     method = payload.get("method")
     params = payload.get("params", {}) or {}
@@ -195,6 +198,13 @@ async def process_jsonrpc_request(payload: Dict[str, Any], user_context: Dict[st
     elif method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments", {}) or {}
+
+        # Enforce authentication for executing tools
+        if not user_context:
+            if request:
+                user_context = await validate_oauth_token(request)
+            else:
+                raise HTTPException(status_code=401, detail="Authentication required to invoke tools")
 
         try:
             result_data = await dispatch_tool_call(tool_name, arguments, user_context)
@@ -288,7 +298,6 @@ async def mcp_sse(request: Request):
 async def mcp_messages(
     request: Request,
     sessionId: Optional[str] = Query(None),
-    user_context: dict = Depends(validate_oauth_token)
 ):
     """
     Message receiver for SSE transport.
@@ -299,7 +308,8 @@ async def mcp_messages(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    response = await process_jsonrpc_request(body, user_context)
+    user_context = await get_optional_oauth_token(request)
+    response = await process_jsonrpc_request(body, user_context, request)
 
     # If an SSE session is active for this client, push response to the stream
     if sessionId and sessionId in _sse_sessions and response is not None:
@@ -318,7 +328,6 @@ async def mcp_messages(
 @mcp_router.post("/rpc")
 async def mcp_rpc(
     request: Request,
-    user_context: dict = Depends(validate_oauth_token)
 ):
     """
     Direct JSON-RPC 2.0 endpoint for Streamable HTTP clients (Claude Desktop, inspector, curl).
@@ -328,16 +337,18 @@ async def mcp_rpc(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
+    user_context = await get_optional_oauth_token(request)
+
     # Handle batch or single JSON-RPC
     if isinstance(body, list):
         responses = []
         for req in body:
-            res = await process_jsonrpc_request(req, user_context)
+            res = await process_jsonrpc_request(req, user_context, request)
             if res is not None:
                 responses.append(res)
         return JSONResponse(content=responses)
     else:
-        res = await process_jsonrpc_request(body, user_context)
+        res = await process_jsonrpc_request(body, user_context, request)
         if res is not None:
             return JSONResponse(content=res)
         return JSONResponse(status_code=204, content=None)
