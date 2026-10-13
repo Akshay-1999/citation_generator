@@ -94,10 +94,17 @@ The application will be accessible at `http://localhost:5173`.
 
 - `app.py`: Main FastAPI entry point
 - `agents/`: AI agent logic and tools
+- `mcp_server/`: Anthropic Claude Model Context Protocol (MCP) server & OAuth 2.1 layer
 - `db/`: Database models and connection setup
 - `frontend/`: React + Vite application
 - `requirements.txt`: Python package dependencies
 - `static/` & `uploaded_files/`: Static assets and processed documents
+
+## 🔌 Model Context Protocol (MCP) Integration
+This repository includes a full-featured MCP server that enables **Anthropic Claude** (Claude Desktop, Claude.ai Web Connector, MCP Inspector) to search candidate resumes, perform automated batch screening against Job Descriptions, and fetch candidate assessment reports.
+
+For complete documentation on setup, protocol specifications, tool schemas, and AI client configuration, see:
+👉 **[MCP Server Guide](documentation/mcp_server_guide.md)**
 
 ## 📄 License
 This project is for training and development purposes.
