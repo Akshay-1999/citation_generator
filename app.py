@@ -80,6 +80,8 @@ ALLOWED_ORIGINS = [
     "http://192.168.0.69:5173",
     "http://recai.estuate.com",
     "https://recai.estuate.com",
+    "https://claude.ai",
+    "https://modelcontextprotocol.io",
 ]
 
 # Add any additional origins from environment variable
@@ -113,6 +115,8 @@ from routes.chat import chat_router
 from routes.folderprocesser import folder_processer_router
 from routes.fileconverstion import fileconversionrouter
 from db.jobendpoint import jobrouter
+from mcp_server import oauth_router, mcp_router
+
 app.include_router(userrouter, prefix="/user", tags=["user"])
 app.include_router(mainrouter, prefix="/main", tags=["main"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -123,7 +127,19 @@ app.include_router(jobrouter, prefix="/jobs", tags=["jobs"])
 app.include_router(folder_processer_router, prefix="/folder", tags=["folder"])
 app.include_router(fileconversionrouter, prefix="/conversion/api", tags=["conversion"])
 
+# ─── MCP Connector & OAuth Routers ──────────────────────────────────────────
+app.include_router(oauth_router, prefix="/oauth", tags=["mcp_oauth"])
+app.include_router(oauth_router, tags=["oauth_well_known"])  # mounts /.well-known/oauth-authorization-server
+app.include_router(mcp_router, prefix="/mcp", tags=["mcp"])
+
+@app.get("/.well-known/mcp.json", tags=["mcp"])
+async def well_known_mcp(request: Request):
+    """Claude Connector well-known manifest discovery."""
+    from mcp_server.server import mcp_manifest
+    return await mcp_manifest(request)
+
 # ─── Health Check ───────────────────────────────────────────────────────────
 @app.get("/")
 def root():
     return {"message": "Backend is running"}
+

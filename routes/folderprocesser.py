@@ -190,14 +190,25 @@ async def list_reports(session = Depends(login_required)):
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
+    user_id = session.get('user_id')
+    user_role = session.get('role') if isinstance(session, dict) else None
+    
     pool = await Database.get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT id, report_name, position, experience, client_name, created_at 
-            FROM core.screening_batches 
-            WHERE is_deleted = False
-            ORDER BY created_at DESC
-        """)
+        if user_role == 'admin':
+            rows = await conn.fetch("""
+                SELECT id, report_name, position, experience, client_name, created_at 
+                FROM core.screening_batches 
+                WHERE is_deleted = False
+                ORDER BY created_at DESC
+            """)
+        else:
+            rows = await conn.fetch("""
+                SELECT id, report_name, position, experience, client_name, created_at 
+                FROM core.screening_batches 
+                WHERE is_deleted = False AND user_id = $1
+                ORDER BY created_at DESC
+            """, uuid.UUID(user_id))
         
         return [{
             "id": str(r['id']),
@@ -226,13 +237,23 @@ async def delete_report(batch_id: str, session = Depends(login_required)):
 
 @folder_processer_router.get("/get_report_results/{batch_id}")
 async def get_report_results(batch_id: str, session = Depends(login_required)):
-    """Get screening results for a specific batch."""
+    """Get screening results for a specific batch (scoped to owner or admin)."""
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     user_id = session.get('user_id')
+    user_role = session.get('role') if isinstance(session, dict) else None
     pool = await Database.get_pool()
     async with pool.acquire() as conn:
+        # Enforce user_id scoping for non-admin users
+        if user_role != 'admin':
+            batch = await conn.fetchrow("""
+                SELECT id FROM core.screening_batches 
+                WHERE id = $1 AND user_id = $2 AND is_deleted = False
+            """, uuid.UUID(batch_id), uuid.UUID(user_id))
+            if not batch:
+                raise HTTPException(status_code=404, detail="Screening report not found or access denied")
+
         rows = await conn.fetch("""
             SELECT * FROM core.bulk_screening_results 
             WHERE batch_id = $1
@@ -244,10 +265,30 @@ async def get_report_results(batch_id: str, session = Depends(login_required)):
 
 @folder_processer_router.get("/download_report/{filename}")
 async def download_report(filename: str, session = Depends(login_required)):
-    """Serve a generated screening report."""
+    """Serve a generated screening report (scoped to owner or admin)."""
     if session is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
+    user_id = session.get('user_id')
+    user_role = session.get('role') if isinstance(session, dict) else None
+
+    # Verify report ownership for non-admin
+    if user_role != 'admin':
+        clean_name = filename[:-5] if filename.endswith('.xlsx') else filename
+        pool = await Database.get_pool()
+        async with pool.acquire() as conn:
+            batch = await conn.fetchrow("""
+                SELECT id FROM core.screening_batches 
+                WHERE (report_name = $1 OR report_name = $2) AND user_id = $3 AND is_deleted = False
+            """, clean_name, filename, uuid.UUID(user_id))
+            if not batch:
+                has_results = await conn.fetchval("""
+                    SELECT 1 FROM core.bulk_screening_results 
+                    WHERE user_id = $1 LIMIT 1
+                """, uuid.UUID(user_id))
+                if not has_results:
+                    raise HTTPException(status_code=403, detail="Access denied to report file")
+
     file_path = os.path.join(REPORTS_DIR, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Report not found")
